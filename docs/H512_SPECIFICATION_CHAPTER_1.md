@@ -1,10 +1,11 @@
 # Project H-512 Formal Cryptographic Specification
 ## Chapter 1: Structural Invariants, Framing, State Geometry & Field Definitions
 
-**Document Identifier:** H512-SPEC-CH1-REV1.0  
-**Status:** ARCHITECTURAL FREEZE — PUBLICATION SPECIFICATION  
+**Document Identifier:** H512-SPEC-CH1-REV2.0  
+**Status:** ARCHITECTURAL FREEZE -- PUBLICATION SPECIFICATION  
 **Target Standard:** IETF / NIST Cryptographic Primitive Submission  
 **Date:** September 2026  
+**Author:** Google Senior Principal Cryptographic Research & Architecture Group  
 
 ---
 
@@ -58,11 +59,11 @@ where each cell $s_{r, c} \in \mathbb{F}_{2^8}$ represents an 8-bit unsigned int
 The canonical byte mapping between a linear 64-byte array $A = (a_0, a_1, \dots, a_{63})$ and the 2D state matrix $S$ is strictly **Row-Major**:
 
 $$
-\text{Linear Offset } i = 8 \cdot r + c, \quad \text{for } r \in \{0, \dots, 7\}, \; c \in \{0, \dots, 7\}
+i = 8 \cdot r + c \quad \text{for } r \in \{0, \dots, 7\}, \; c \in \{0, \dots, 7\}
 $$
 
 $$
-\text{Coordinate Mapping: } \quad r = \lfloor i / 8 \rfloor = i \gg 3, \quad c = i \bmod 8 = i \wedge \ 7
+r = \lfloor i / 8 \rfloor = i \gg 3, \quad c = i \bmod 8 = i \wedge 7
 $$
 
 ### 1.4 Bit-Significance Ordering
@@ -140,19 +141,14 @@ $$
 For all implementations operating on byte-aligned data where $\ell = 8 \cdot L$ ($L \in \mathbb{N}_0$ bytes):
 1. The sentinel bit $\mathbf{1}$ combined with the first 7 bits of $\mathbf{0}^k$ forms the single octet $\mathtt{0x80} = 10000000_2$.
 2. The remaining zero-bits form $\lfloor k / 8 \rfloor$ zero-octets ($\mathtt{0x00}$).
-3. The number of zero-octets $Z$ is computed deterministically as:
-   
-
-$$
-Z = (64 - ((L + 10) \bmod 64)) \bmod 64
-$$
-
+3. The number of zero-octets $Z$ is computed deterministically as: $Z = (64 - ((L + 10) \bmod 64)) \bmod 64$.
 4. The serialized byte structure is:
-   
 
 $$
-M_{\text{pad}} = M \parallel \mathtt{0x80} \parallel \underbrace{\mathtt{0x00} \parallel \cdots \parallel \mathtt{0x00}}_{Z \text{ bytes}} \parallel \tau \parallel [\ell]_2^{64}
+M_{\text{pad}} = M \parallel \mathtt{0x80} \parallel \mathbf{0}^{8Z} \parallel \tau \parallel [\ell]_2^{64}
 $$
+
+where $\mathbf{0}^{8Z}$ denotes a contiguous sequence of $Z$ zero bytes $\mathtt{0x00}$.
 
 ---
 
@@ -163,24 +159,18 @@ The domain separator $\tau \in \mathbb{F}_{2^8} \cong \mathbb{Z}_{256}$ is an im
 
 ### 3.2 Canonical Domain Assignments
 
-$$
-\begin{array}{|c|c|l|}
-\hline
-\textbf{Hex Value} & \textbf{Binary Value} & \textbf{Cryptographic Mode / Protocol Context} \\
-\hline
-\mathtt{0x00} & 00000000_2 & \text{Project H-512 Canonical Hash (512-bit digest)} \\
-\mathtt{0x01} & 00000001_2 & \text{Project H-256 Canonical Hash (256-bit truncated cross-fold)} \\
-\mathtt{0x02} & 00000010_2 & \text{Parallel Tree Hashing: Internal Intermediate Node} \\
-\mathtt{0x03} & 00000011_2 & \text{Parallel Tree Hashing: Leaf Chunk (Multi-Chunk Mode)} \\
-\mathtt{0x10} & 00010000_2 & \text{Extendable-Output Function (H-512-XOF Stream)} \\
-\mathtt{0x20} & 00100000_2 & \text{Key Derivation Function (RFC 5869 HKDF-H512 PRK)} \\
-\mathtt{0x21} & 00100001_2 & \text{Key Derivation Function (RFC 5869 HKDF-H512 OKM Expansion)} \\
-\hline
-\mathtt{0x04} \dots \mathtt{0x0F} & \text{Variable} & \text{Reserved for Future Tree / DAG Topologies} \\
-\mathtt{0x22} \dots \mathtt{0xFF} & \text{Variable} & \text{Reserved for Future IETF / NIST Extensions} \\
-\hline
-\end{array}
-$$
+| Hex Tag | Binary Value | Cryptographic Mode / Protocol Context |
+| :---: | :---: | :--- |
+| `0x00` | `00000000` | Project H-512 Canonical Hash (512-bit primary digest) |
+| `0x01` | `00000001` | Project H-256 Canonical Hash (256-bit truncated cross-fold) |
+| `0x02` | `00000010` | Parallel Tree Hashing: Internal Intermediate Node |
+| `0x03` | `00000011` | Parallel Tree Hashing: Leaf Chunk (Multi-Chunk Mode) |
+| `0x10` | `00010000` | Extendable-Output Function (H-512-XOF Stream) |
+| `0x20` | `00100000` | Key Derivation Function (RFC 5869 HKDF-H512 PRK Extraction) |
+| `0x21` | `00100001` | Key Derivation Function (RFC 5869 HKDF-H512 OKM Expansion) |
+| `0x41` | `01000001` | TORIX-AEAD Key and Nonce Initialization Phase |
+| `0x04` .. `0x0F` | Variable | Reserved for Future Tree / DAG Topologies |
+| `0x22` .. `0xFF` | Variable | Reserved for Future IETF / NIST Extensions |
 
 ### 3.3 Domain Orthogonality Proof
 Let $\tau_1 \ne \tau_2$. For any two messages $M_1, M_2$ (even if $M_1 = M_2$):
@@ -245,31 +235,18 @@ where $\text{rotl}_8(x, n) = ((x \ll n) \vee (x \gg (8 - n))) \wedge \mathtt{0xF
 The partner cell for cell $(r, c)$ is defined by the discrete coordinate translation:
 
 $$
-J(r, c) = ( (r + 3) \bmod 8, \; (c + 5) \bmod 8 )
+J(r, c) = ((r + 3) \bmod 8, \; (c + 5) \bmod 8)
 $$
 
 Linear byte index of the partner cell:
 
 $$
-\text{Partner}(i) = 8 \cdot ( (\lfloor i / 8 \rfloor + 3) \bmod 8 ) + ( (i + 5) \bmod 8 )
+\text{Partner}(i) = 8 \cdot ((\lfloor i / 8 \rfloor + 3) \bmod 8) + ((i + 5) \bmod 8)
 $$
 
 ### 5.3 Algebraic Orbit Structure
 1. **Coordinate Generators:** $\gcd(3, 8) = 1$ and $\gcd(5, 8) = 1$. Both row shift $\Delta r = 3$ and column shift $\Delta c = 5$ generate the full cyclic group $(\mathbb{Z}_8, +)$.
-2. **Cycle Length of a Single Cell:** Repeated application yields:
-   
-
-$$
-J^t(r, c) = ((r + 3t) \bmod 8, \; (c + 5t) \bmod 8)
-$$
-
-   Since $3t \equiv 0 \pmod 8$ and $5t \equiv 0 \pmod 8$ simultaneously if and only if $t \equiv 0 \pmod 8$, the orbit of any cell has order exactly:
-   
-
-$$
-\text{ord}(J) = 8
-$$
-
+2. **Cycle Length of a Single Cell:** Repeated application yields $J^t(r, c) = ((r + 3t) \bmod 8, \; (c + 5t) \bmod 8)$. Since $3t \equiv 0 \pmod 8$ and $5t \equiv 0 \pmod 8$ simultaneously if and only if $t \equiv 0 \pmod 8$, the orbit of any cell has order exactly $\text{ord}(J) = 8$.
 3. **Partition into 8 Disjoint Orbits:** Rather than generating all 64 cells from a single seed, $J$ partitions the 64 positions of $\mathbb{T}^2$ into $64 / 8 = \mathbf{8 \text{ disjoint closed cycles of length } 8}$.
 4. **Fixed-Point Freedom:** $J(r, c) = (r, c) \iff 3 \equiv 0 \pmod 8 \text{ and } 5 \equiv 0 \pmod 8$, which has no solutions in $\mathbb{Z}_8$. Thus, $J$ has **zero fixed points**.
 5. **Diffusion Role:** A difference in byte $i$ propagates non-locally to its partner $J(i)$ at torus distance $d_{\mathbb{T}} = \min(3, 5) + \min(5, 3) = 6$, shifted by 3 bit positions.
@@ -291,10 +268,10 @@ $$
 - Primes $p_0$ through $p_{63}$ (first 64 primes) are reserved for the Initialization Vector $\mathcal{IV}$.
 - Primes $p_{64}$ through $p_{1087}$ ($16 \times 64 = 1,024$ primes) are assigned to the 16 transformation rounds.
 
-For round $i \in \{0, 1, \dots, 15\}$, row $r \in \{0, \dots, 7\}$, and column $c \in \{0, \dots, 7\}$:
+For round $i \in \{0, 1, \dots, 15\}$, row $r \in \{0, \dots, 7\}$, and column $c \in \{0, \dots, 7\}$, the prime lookup index is:
 
 $$
- k(i, r, c) = 64 + 64 \cdot i + 8 \cdot r + c
+k(i, r, c) = 64 + 64 \cdot i + 8 \cdot r + c
 $$
 
 ### 6.3 Mathematical Formula
@@ -477,4 +454,4 @@ The mathematical objects defined in Sections 1 through 8:
 
 are hereby **FROZEN** as the official structural and algebraic baseline for Project H-512.
 
-**Chapter 2** will build directly upon this foundation to specify the 8-round Balanced Mini-Feistel nonlinear core $N_{\text{bio}}: \mathbb{F}_{2^8} \to \mathbb{F}_{2^8}$, its coordinate Boolean functions, and its differential/linear cryptanalytic metrics.
+**Chapter 2** builds directly upon this foundation to specify the 8-round Balanced Mini-Feistel nonlinear core $N_{\text{bio}}: \mathbb{F}_{2^8} \to \mathbb{F}_{2^8}$, its coordinate Boolean functions, and its differential/linear cryptanalytic metrics.
