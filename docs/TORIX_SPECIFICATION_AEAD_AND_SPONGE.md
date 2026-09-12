@@ -21,7 +21,10 @@ Both primitives inherit the formal diffusion, high algebraic degree, and low dif
 ## 1. Mathematical Foundation: The Toroidal Permutation $\mathcal{P}$
 
 The underlying cryptographic state $\mathcal{S}$ is modeled as an $8 \times 8$ matrix of octets over the finite field $\mathbb{F}_{2^8}$:
-$$\mathcal{S} \in \mathcal{M}_{8 \times 8}(\mathbb{F}_{2^8}) \cong \{0, 1\}^{512}$$
+
+$$
+\mathcal{S} \in \mathcal{M}_{8 \times 8}(\mathbb{F}_{2^8}) \cong \{0, 1\}^{512}
+$$
 
 Individual cells are indexed by coordinate pairs $(r, c) \in \mathbb{Z}_8 \times \mathbb{Z}_8$.
 
@@ -39,10 +42,20 @@ graph TD
 ### 1.1 Permutation Hierarchy: $\mathcal{P}_{16}$ vs. $\mathcal{P}_8$
 To optimize throughput without compromising provable margin:
 - **Full Permutation $\mathcal{P}_{16}$ (16 Rounds):**
-  $$\mathcal{S}^{(16)} = \big(\mathcal{R}_{15} \circ \mathcal{R}_{14} \circ \cdots \circ \mathcal{R}_0\big)(\mathcal{S}^{(0)})$$
+  
+
+$$
+\mathcal{S}^{(16)} = (\mathcal{R}_{15} \circ \mathcal{R}_{14} \circ \cdots \circ \mathcal{R}_0)(\mathcal{S}^{(0)})
+$$
+
   Executes all four macrocycles ($A \to B \to C \to D \times 4$). Deployed during initialization, key absorption, finalization, and tag generation where maximal margin ($n_{\text{act}} \ge 544$, $P_{\text{diff}} \le 2^{-2401.7}$) is mandatory.
 - **Reduced Permutation $\mathcal{P}_8$ (8 Rounds):**
-  $$\mathcal{S}^{(8)} = \big(\mathcal{R}_7 \circ \mathcal{R}_6 \circ \cdots \circ \mathcal{R}_0\big)(\mathcal{S}^{(0)})$$
+  
+
+$$
+\mathcal{S}^{(8)} = (\mathcal{R}_7 \circ \mathcal{R}_6 \circ \cdots \circ \mathcal{R}_0)(\mathcal{S}^{(0)})
+$$
+
   Executes two full macrocycle cycles ($A \to B \to C \to D \times 2$), activating $\ge 272$ S-boxes. Deployed in the streaming absorption and encryption phases to achieve high performance on SIMD and superscalar architectures.
 
 ---
@@ -58,7 +71,11 @@ TORIX-AEAD accepts the following parameters:
 - **Authentication Tag ($T$):** Exactly 256 bits (32 octets).
 
 The 512-bit state $\mathcal{S}$ is partitioned into two 256-bit row bands:
-$$\mathcal{S} = \mathcal{S}_{\text{rate}} \mathbin{\Vert} \mathcal{S}_{\text{capacity}}$$
+
+$$
+\mathcal{S} = \mathcal{S}_{\text{rate}} \parallel \mathcal{S}_{\text{capacity}}
+$$
+
 where:
 - $\mathcal{S}_{\text{rate}}$ comprises Rows $0, 1, 2, 3$ (32 octets): Serves as the public absorption/emission aperture.
 - $\mathcal{S}_{\text{capacity}}$ comprises Rows $4, 5, 6, 7$ (32 octets): Remains unexposed, shielding internal state against reconstruction.
@@ -250,8 +267,8 @@ The capacity $c$ dictates the theoretical asymptotic security of the sponge:
 
 | Operating Configuration | Rate $r$ (Bytes / Bits) | Capacity $c$ (Bytes / Bits) | Classical Preimage Security | **Quantum Grover Preimage Security** | Target Deployment Profile |
 | :--- | :---: | :---: | :---: | :---: | :--- |
-| **TORIX-PQ-Standard** | 16 B / 128 bits | **48 B / 384 bits** | $2^{384}$ | **$2^{192}$ (NIST PQ Category 5)** | Long-term Post-Quantum signatures, key encapsulation |
-| **TORIX-XOF (High Speed)** | 32 B / 256 bits | **32 B / 256 bits** | $2^{256}$ | **$2^{128}$ (NIST PQ Category 1)** | Bulk data hashing, TLS stream ciphers, key derivation |
+| **TORIX-PQ-Standard** | 16 B / 128 bits | **48 B / 384 bits** | 2^384 | **2^192 (NIST PQ Category 5)** | Long-term Post-Quantum signatures, key encapsulation |
+| **TORIX-XOF (High Speed)** | 32 B / 256 bits | **32 B / 256 bits** | 2^256 | **2^128 (NIST PQ Category 1)** | Bulk data hashing, TLS stream ciphers, key derivation |
 
 ---
 
@@ -279,9 +296,18 @@ sequenceDiagram
 ```
 
 Mathematical Formulation:
-$$\mathcal{S} \leftarrow \mathcal{S} \oplus \big(\text{DataIn} \mathbin{\Vert} 0^{512 - |\text{DataIn}|}\big)$$
-$$\mathcal{S} \leftarrow \mathcal{P}_{16}(\mathcal{S})$$
-$$\text{DataOut} \leftarrow \mathcal{S}[0 \dots \text{OutBytes}-1]$$
+
+$$
+\mathcal{S} \leftarrow \mathcal{S} \oplus (\text{DataIn} \parallel 0^{512 - |\text{DataIn}|})
+$$
+
+$$
+\mathcal{S} \leftarrow \mathcal{P}_{16}(\mathcal{S})
+$$
+
+$$
+\text{DataOut} \leftarrow \mathcal{S}[0 \dots \text{OutBytes}-1]
+$$
 
 Because the state transition depends irreversibly on the entire history of absorbed tokens, interactive replay or transcript manipulation attacks are unconditionally detected.
 
@@ -299,7 +325,7 @@ Because the state transition depends irreversibly on the entire history of absor
 
 The specifications defined herein:
 - TORIX-AEAD 4-phase lifecycle with domain separation tags $\tau_{\text{INIT}}, \tau_{\text{AD}}, \tau_{\text{ENC}}, \tau_{\text{FINAL}}$
-- Rate/Capacity partitioning $\mathcal{S} = \mathcal{S}_{\text{rate}} \mathbin{\Vert} \mathcal{S}_{\text{capacity}}$ (32/32 octets)
+- Rate/Capacity partitioning $\mathcal{S} = \mathcal{S}_{\text{rate}} \parallel \mathcal{S}_{\text{capacity}}$ (32/32 octets)
 - Multi-rate duplex sponge parameter sets ($r=16, c=48$ and $r=32, c=32$)
 - Constant-time verification and zeroization mandates
 

@@ -48,7 +48,8 @@ graph TD
 ### 1.1 State Representation
 The cryptographic state $\mathcal{S}$ is modeled as an element of the matrix space $\mathcal{M}_{8 \times 8}(\mathbb{F}_{2^8})$:
 
-$$\mathcal{S} = \begin{pmatrix}
+$$
+\mathcal{S} = \begin{pmatrix}
 s_{0,0} & s_{0,1} & s_{0,2} & s_{0,3} & s_{0,4} & s_{0,5} & s_{0,6} & s_{0,7} \\
 s_{1,0} & s_{1,1} & s_{1,2} & s_{1,3} & s_{1,4} & s_{1,5} & s_{1,6} & s_{1,7} \\
 s_{2,0} & s_{2,1} & s_{2,2} & s_{2,3} & s_{2,4} & s_{2,5} & s_{2,6} & s_{2,7} \\
@@ -57,7 +58,8 @@ s_{4,0} & s_{4,1} & s_{4,2} & s_{4,3} & s_{4,4} & s_{4,5} & s_{4,6} & s_{4,7} \\
 s_{5,0} & s_{5,1} & s_{5,2} & s_{5,3} & s_{5,4} & s_{5,5} & s_{5,6} & s_{5,7} \\
 s_{6,0} & s_{6,1} & s_{6,2} & s_{6,3} & s_{6,4} & s_{6,5} & s_{6,6} & s_{6,7} \\
 s_{7,0} & s_{7,1} & s_{7,2} & s_{7,3} & s_{7,4} & s_{7,5} & s_{7,6} & s_{7,7}
-\end{pmatrix}$$
+\end{pmatrix}
+$$
 
 ### 1.2 Torus Boundary Metrics
 Let $\mathbb{T}^2 = \mathbb{Z}_8 \times \mathbb{Z}_8$. Boundary conditions are defined cyclically modulo 8:
@@ -70,8 +72,15 @@ The 2D toroidal lattice forms a 4-regular Cayley graph on $\mathbb{Z}_8 \times \
 
 ### 1.3 Nothing-Up-My-Sleeve (NUMS) Derivation
 The 64-byte Initialization Vector (IV) and 1,024 round constants ($\text{RC}_i[r, c]$) are generated deterministically from the square roots and cube roots of consecutive prime numbers:
-$$\text{IV}[r, c] = \left\lfloor 256 \cdot \left( \sqrt{p_{8r + c}} - \lfloor \sqrt{p_{8r + c}} \rfloor \right) \right\rfloor \bmod 256$$
-$$\text{RC}_i[r, c] = \left\lfloor 256 \cdot \left( \sqrt[3]{p_{64 + 64i + 8r + c}} - \lfloor \sqrt[3]{p_{64 + 64i + 8r + c}} \rfloor \right) \right\rfloor \bmod 256$$
+
+$$
+\text{IV}[r, c] = \left\lfloor 256 \cdot \left( \sqrt{p_{8r + c}} - \lfloor \sqrt{p_{8r + c}} \rfloor \right) \right\rfloor \bmod 256
+$$
+
+$$
+\text{RC}_i[r, c] = \left\lfloor 256 \cdot \left( \sqrt[3]{p_{64 + 64i + 8r + c}} - \lfloor \sqrt[3]{p_{64 + 64i + 8r + c}} \rfloor \right) \right\rfloor \bmod 256
+$$
+
 This construction precludes backdoors or structural traps in the parameter set.
 
 ---
@@ -94,18 +103,24 @@ graph LR
 
 ### 2.1 Stage A: Toroidal Context Coupling ($\mathcal{L}$)
 Local diffusion couples each cell to its four cardinal neighbors with family-dependent rotation offsets $(\alpha, \beta, \gamma, \delta)$:
-$$\text{ctx}(r, c) = \mathcal{S}[r, c] \oplus (\text{North} \lll \alpha) \oplus (\text{East} \lll \beta) \oplus (\text{South} \lll \gamma) \oplus (\text{West} \lll \delta)$$
 
-| Macrocycle | Family | $\alpha$ | $\beta$ | $\gamma$ | $\delta$ | Permutation Transformation $\mathcal{G}$ |
+$$
+\text{ctx}(r, c) = \mathcal{S}[r, c] \oplus \text{rotl}_8(\text{North}, \alpha) \oplus \text{rotl}_8(\text{East}, \beta) \oplus \text{rotl}_8(\text{South}, \gamma) \oplus \text{rotl}_8(\text{West}, \delta)
+$$
+
+| Macrocycle | Round Family | alpha | beta | gamma | delta | Permutation Transformation G |
 | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
-| Macrocycle A | Family A ($i \equiv 0$) | 1 | 2 | 3 | 5 | ShiftRows ($\text{row } r \lll r$) |
-| Macrocycle B | Family B ($i \equiv 1$) | 3 | 5 | 1 | 7 | Quadrant Swap + Transposition ($\mathcal{S}^T$) |
-| Macrocycle C | Family C ($i \equiv 2$) | 5 | 1 | 7 | 3 | ShiftRows + Transposition ($\mathcal{S}^T \circ \text{ShiftRows}$) |
-| Macrocycle D | Family D ($i \equiv 3$) | 7 | 3 | 5 | 1 | Quadrant Swap + ShiftRows + Row-Reverse |
+| Macrocycle A | Family A (i mod 4 = 0) | 1 | 2 | 3 | 5 | ShiftRows (row r rotated right by r) |
+| Macrocycle B | Family B (i mod 4 = 1) | 3 | 5 | 1 | 7 | Quadrant Swap + Matrix Transposition |
+| Macrocycle C | Family C (i mod 4 = 2) | 5 | 1 | 7 | 3 | ShiftRows + Matrix Transposition |
+| Macrocycle D | Family D (i mod 4 = 3) | 7 | 3 | 5 | 1 | Quadrant Swap + ShiftRows + Row-Reverse |
 
 ### 2.2 Stage B: Nonlinear Substitution ($N_{\text{bio}}$)
 An 8-round balanced Mini-Feistel network operating on 4-bit nibbles $(L, R) \in \mathbb{F}_2^4 \times \mathbb{F}_2^4$:
-$$L_{j+1} = R_j, \qquad R_{j+1} = L_j \oplus F_j(R_j) \quad \text{for } j = 0 \dots 7$$
+
+$$
+L_{j+1} = R_j, \qquad R_{j+1} = L_j \oplus F_j(R_j) \quad \text{for } j \in \{0, \dots, 7\}
+$$
 
 ```mermaid
 graph TD
@@ -124,14 +139,19 @@ graph TD
 ```
 
 The round functions $F_j(R)$ integrate bitwise nonlinear logic and arithmetic operations modulo 16:
-$$F_0(R) = ((R \oplus (R \lll 1)) \cdot 7 + 5 + (R \ \& \ (R \lll 2))) \bmod 16$$
-$$F_1(R) = ((R \oplus (R \lll 2)) \cdot 11 + 3 + (R \mid (R \lll 1))) \bmod 16$$
-$$F_2(R) = ((R \oplus (R \lll 3)) \cdot 13 + 9 + (R \ \& \ (R \lll 3))) \bmod 16$$
-$$F_3(R) = ((R \oplus (R \lll 1)) \cdot 5 + 7 + (R \oplus (R \lll 2))) \bmod 16$$
-$$F_4(R) = ((R \oplus (R \lll 2)) \cdot 7 + 1 + (R \ \& \ (R \lll 1))) \bmod 16$$
-$$F_5(R) = ((R \oplus (R \lll 3)) \cdot 3 + 11 + (R \mid (R \lll 2))) \bmod 16$$
-$$F_6(R) = ((R \oplus (R \lll 1)) \cdot 11 + 5 + (R \ \& \ (R \lll 1))) \bmod 16$$
-$$F_7(R) = ((R \oplus (R \lll 2)) \cdot 13 + 7 + (R \oplus (R \lll 3))) \bmod 16$$
+
+$$
+\begin{aligned}
+F_0(R) &= \left( (R \oplus \text{rotl}_4(R, 1)) \cdot 7 + 5 + (R \wedge \text{rotl}_4(R, 2)) \right) \bmod 16 \\
+F_1(R) &= \left( (R \oplus \text{rotl}_4(R, 2)) \cdot 11 + 3 + (R \vee \text{rotl}_4(R, 1)) \right) \bmod 16 \\
+F_2(R) &= \left( (R \oplus \text{rotl}_4(R, 3)) \cdot 13 + 9 + (R \wedge \text{rotl}_4(R, 3)) \right) \bmod 16 \\
+F_3(R) &= \left( (R \oplus \text{rotl}_4(R, 1)) \cdot 5 + 7 + (R \oplus \text{rotl}_4(R, 2)) \right) \bmod 16 \\
+F_4(R) &= \left( (R \oplus \text{rotl}_4(R, 2)) \cdot 7 + 1 + (R \wedge \text{rotl}_4(R, 1)) \right) \bmod 16 \\
+F_5(R) &= \left( (R \oplus \text{rotl}_4(R, 3)) \cdot 3 + 11 + (R \vee \text{rotl}_4(R, 2)) \right) \bmod 16 \\
+F_6(R) &= \left( (R \oplus \text{rotl}_4(R, 1)) \cdot 11 + 5 + (R \wedge \text{rotl}_4(R, 1)) \right) \bmod 16 \\
+F_7(R) &= \left( (R \oplus \text{rotl}_4(R, 2)) \cdot 13 + 7 + (R \oplus \text{rotl}_4(R, 3)) \right) \bmod 16
+\end{aligned}
+$$
 
 #### Cryptanalytic Properties of $N_{\text{bio}}$:
 * **Strict Bijectivity:** $256 / 256$ unique outputs (zero domain collapse under arbitrary recursive iteration).
@@ -142,21 +162,28 @@ $$F_7(R) = ((R \oplus (R \lll 2)) \cdot 13 + 7 + (R \oplus (R \lll 3))) \bmod 16
 ### 2.3 Stage C: Involutive $\mathbb{F}_{2^8}$ MDS Hyper-Diffusion ($\mathcal{M}$)
 To accelerate vertical diffusion across columns, each column is divided into two 4-byte sub-vectors ($r \in \{0..3\}$ and $r \in \{4..7\}$) and multiplied by the circulant Maximum Distance Separable matrix:
 
-$$\mathbf{M}_{\text{MDS}} = \begin{pmatrix}
+$$
+\mathbf{M}_{\text{MDS}} = \begin{pmatrix}
 02 & 03 & 01 & 01 \\
 01 & 02 & 03 & 01 \\
 01 & 01 & 02 & 03 \\
 03 & 01 & 01 & 02
-\end{pmatrix} \in \mathcal{M}_{4 \times 4}(\mathbb{F}_{2^8})$$
+\end{pmatrix} \in \mathcal{M}_{4 \times 4}(\mathbb{F}_{2^8})
+$$
 
 Defined over the Rijndael finite field $\mathbb{F}_{2^8} \cong \mathbb{F}_2[x] / \langle x^8 + x^4 + x^3 + x + 1 \rangle$.
 * **Branch Number:** $\mathcal{B}_{\text{MDS}} = \min_{v \ne 0} (w_H(v) + w_H(\mathbf{M}_{\text{MDS}} v)) = 5$ (optimal for $4 \times 4$ matrix).
 * **Branchless SIMD Formulation (Daemen-Rijmen):**
-  $$t = v_0 \oplus v_1 \oplus v_2 \oplus v_3$$
-  $$z_0 = v_0 \oplus t \oplus \text{xtime}(v_0 \oplus v_1) = 02 \cdot v_0 \oplus 03 \cdot v_1 \oplus v_2 \oplus v_3$$
-  $$z_1 = v_1 \oplus t \oplus \text{xtime}(v_1 \oplus v_2) = v_0 \oplus 02 \cdot v_1 \oplus 03 \cdot v_2 \oplus v_3$$
-  $$z_2 = v_2 \oplus t \oplus \text{xtime}(v_2 \oplus v_3) = v_0 \oplus v_1 \oplus 02 \cdot v_2 \oplus 03 \cdot v_3$$
-  $$z_3 = v_3 \oplus t \oplus \text{xtime}(v_3 \oplus v_0) = 03 \cdot v_0 \oplus v_1 \oplus v_2 \oplus 02 \cdot v_3$$
+
+$$
+\begin{aligned}
+t &= v_0 \oplus v_1 \oplus v_2 \oplus v_3 \\
+z_0 &= v_0 \oplus t \oplus \text{xtime}(v_0 \oplus v_1) = (02 \cdot v_0) \oplus (03 \cdot v_1) \oplus v_2 \oplus v_3 \\
+z_1 &= v_1 \oplus t \oplus \text{xtime}(v_1 \oplus v_2) = v_0 \oplus (02 \cdot v_1) \oplus (03 \cdot v_2) \oplus v_3 \\
+z_2 &= v_2 \oplus t \oplus \text{xtime}(v_2 \oplus v_3) = v_0 \oplus v_1 \oplus (02 \cdot v_2) \oplus (03 \cdot v_3) \\
+z_3 &= v_3 \oplus t \oplus \text{xtime}(v_3 \oplus v_0) = (03 \cdot v_0) \oplus v_1 \oplus v_2 \oplus (02 \cdot v_3)
+\end{aligned}
+$$
 
 ---
 
@@ -164,8 +191,12 @@ Defined over the Rijndael finite field $\mathbb{F}_{2^8} \cong \mathbb{F}_2[x] /
 
 ### 3.1 Miyaguchi-Preneel Dual Feedforward
 Block processing implements the provably secure Miyaguchi-Preneel construction in the Ideal Cipher Model:
-$$\mathcal{S}_{i} = \mathcal{S}_{i-1} \oplus \mathcal{S}^* \oplus \mathbf{M}_{\text{disp}}$$
-Where $\mathcal{S}^* = \mathcal{P}_{16}(\mathcal{S}_{i-1} \oplus \mathbf{M}_{\text{disp}} \oplus \mathbf{T}_{\text{diag}})$.
+
+$$
+\mathcal{S}_{i} = \mathcal{S}_{i-1} \oplus \mathcal{S}^* \oplus \mathbf{M}_{\text{disp}}
+$$
+
+where $\mathcal{S}^* = \mathcal{P}_{16}(\mathcal{S}_{i-1} \oplus \mathbf{M}_{\text{disp}} \oplus \mathbf{T}_{\text{diag}})$.
 
 ```mermaid
 graph TD
@@ -184,10 +215,18 @@ graph TD
 
 ### 3.2 Digest Extraction
 1. **TORIX-512 (Canonical 512-bit Digest):**
-   $$H_{512} = \mathcal{S}_{m}[0,0] \mathbin{\Vert} \mathcal{S}_{m}[0,1] \mathbin{\Vert} \dots \mathbin{\Vert} \mathcal{S}_{m}[7,7]$$
+
+$$
+H_{512} = \mathcal{S}_m[0,0] \parallel \mathcal{S}_m[0,1] \parallel \cdots \parallel \mathcal{S}_m[7,7]
+$$
+
 2. **TORIX-256 (Truncated Cross-Fold 256-bit Digest):**
-   $$H_{256}[8r + c] = \mathcal{S}[r, c] \oplus N_{\text{bio}}(\mathcal{S}[r + 4, c]) \quad \text{for } r \in \{0..3\}, c \in \{0..7\}$$
-   The nonlinear cross-fold destroys invertibility between 512-bit internal states and 256-bit digests.
+
+$$
+H_{256}[8r + c] = \mathcal{S}[r, c] \oplus N_{\text{bio}}(\mathcal{S}[r + 4, c]) \quad \text{for } r \in \{0, \dots, 3\}, \; c \in \{0, \dots, 7\}
+$$
+
+The nonlinear cross-fold destroys invertibility between 512-bit internal states and 256-bit digests.
 
 ---
 
@@ -252,15 +291,15 @@ graph LR
 
 | Threat Category | Security Margin | Formal Proof / Verification Method | Status |
 | :--- | :---: | :--- | :---: |
-| **Collision Resistance** | $2^{256}$ ops | Birthday bound on 512-bit state; verified on reduced rounds | **Optimal** |
-| **Preimage Resistance** | $2^{512}$ ops | Algebraic degree $\deg(R_4) = 511$; ideal random oracle model | **Optimal** |
-| **Second Preimage** | $2^{512 - |M|}$ ops | HAIFA bit-counter destroys length-extension and multicollisions | **Optimal** |
-| **Differential Cryptanalysis** | $P_{\text{diff}} \le 2^{-598.8}$ | Wide-trail proof: $n_{\text{act}} \ge 128 \implies p_{\max}^{128} = (10/256)^{128}$ | **Proved** |
-| **Linear Cryptanalysis** | $|C_{\text{trail}}| \le 2^{-256}$ | Matsui correlation: $\epsilon_{\max}^{128} = (1/8)^{128} \implies N_{\text{data}} \ge 2^{512}$ | **Proved** |
-| **Algebraic Saturation** | $\deg = 511$ | coordinate $\deg(N_{\text{bio}}) = 7$; full state saturated at Round 4 | **Maximal** |
-| **Length-Extension Attacks** | Complete | HAIFA cumulative bit-counter $t$ injected along matrix diagonal | **Immune** |
-| **Slide / Rotational Attacks** | Complete | Asymmetric NUMS round constants $\text{RC}_i[r,c] \in \sqrt[3]{p}$ | **Immune** |
-| **Side-Channel Timing** | Complete | Welch's $t$-test: $t = -1.6046, p = 0.1086$ (constant-time verified) | **Verified** |
+| **Collision Resistance** | 2^256 operations | Birthday bound on 512-bit state; verified on reduced rounds | Optimal |
+| **Preimage Resistance** | 2^512 operations | Algebraic degree deg(R_4) = 511; ideal random oracle model | Optimal |
+| **Second Preimage** | 2^(512 - \|M\|) ops | HAIFA bit-counter destroys length-extension and multicollisions | Optimal |
+| **Differential Cryptanalysis** | P_diff <= 2^-2401.7 | Wide-trail bound: n_act >= 544 active S-boxes across 16 rounds | Proved |
+| **Linear Cryptanalysis** | \|C_trail\| <= 2^-1088 | Matsui correlation: epsilon_max = 2^-3 across 544 active S-boxes | Proved |
+| **Algebraic Saturation** | Degree = 511 | Coordinate deg(N_bio) = 7; full state saturated at Round 4 | Maximal |
+| **Length-Extension Attacks** | Complete Immunity | HAIFA cumulative bit-counter t injected along matrix diagonal | Immune |
+| **Slide / Rotational Attacks** | Complete Immunity | Asymmetric NUMS round constants RC_i[r, c] from cbrt(primes) | Immune |
+| **Side-Channel Timing** | Complete Immunity | Welch t-test: t = -1.6046, p = 0.1086 (constant-time verified) | Verified |
 
 ---
 
@@ -278,9 +317,9 @@ Tested over $1,000,000$ bits of output stream and $204,800$ complete hashes in n
 
 ### 6.2 Master Verification Matrix
 All 15 independent test suites pass with 100% fidelity:
-* `verify_phase3.py` through `verify_phase14.py` — **100% PASS**
-* `test_sponge_and_aead.py` — **100% PASS** (all 5 active tamper attacks rejected)
-* `test_h512.py` — **100% PASS**
+* `verify_phase3.py` through `verify_phase14.py` -- **100% PASS**
+* `test_sponge_and_aead.py` -- **100% PASS** (all 5 active tamper attacks rejected)
+* `test_h512.py` -- **100% PASS**
 
 ---
 

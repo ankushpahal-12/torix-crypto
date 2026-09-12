@@ -42,18 +42,30 @@ graph TD
 
 ### 1.1 Nibble Decomposition
 An input octet $x \in \{0, 1, \dots, 255\}$ is split into two 4-bit elements $(L_0, R_0) \in \mathbb{F}_2^4 \times \mathbb{F}_2^4$:
-$$L_0 = \lfloor x / 16 \rfloor = (x \gg 4) \ \& \ \mathtt{0x0F}$$
-$$R_0 = x \bmod 16 = x \ \& \ \mathtt{0x0F}$$
+
+$$
+L_0 = \lfloor x / 16 \rfloor = (x \gg 4) \wedge \mathtt{0x0F}
+$$
+
+$$
+R_0 = x \bmod 16 = x \wedge \mathtt{0x0F}
+$$
 
 ### 1.2 Feistel Recurrence Relations
 For each round $j \in \{0, 1, 2, 3, 4, 5, 6, 7\}$:
-$$\begin{aligned}
+
+$$
+\begin{aligned}
 L_{j+1} &= R_j \\
 R_{j+1} &= L_j \oplus F_j(R_j)
-\end{aligned}$$
+\end{aligned}
+$$
 
 The final 8-bit substitution output is assembled via:
-$$N_{\text{bio}}(x) = (L_8 \ll 4) \mid R_8$$
+
+$$
+N_{\text{bio}}(x) = (L_8 \ll 4) \vee R_8
+$$
 
 ---
 
@@ -62,19 +74,21 @@ $$N_{\text{bio}}(x) = (L_8 \ll 4) \mid R_8$$
 Each round function $F_j: \mathbb{Z}_{16} \to \mathbb{Z}_{16}$ combines:
 - Arithmetic multiplication by units in the ring $(\mathbb{Z}_{16}, +, \times)$ (specifically coprime units $\{3, 5, 7, 11, 13\}$).
 - Additive constant shifts in $\mathbb{Z}_{16}$.
-- Cyclic nibble rotations $\text{rotl}_4(R, n) = ((R \ll n) \mid (R \gg (4 - n))) \ \& \ \mathtt{0x0F}$.
+- Cyclic nibble rotations $\text{rotl}_4(R, n) = ((R \ll n) \vee (R \gg (4 - n))) \wedge \mathtt{0x0F}$.
 - Non-commutative bitwise Boolean operators ($\&$, $\mid$, $\oplus$).
 
-$$\begin{aligned}
-F_0(R) &= \Big( \big(R \oplus \text{rotl}_4(R, 1)\big) \cdot 7 + 5 + \big(R \ \& \ \text{rotl}_4(R, 2)\big) \Big) \bmod 16 \\
-F_1(R) &= \Big( \big(R \oplus \text{rotl}_4(R, 2)\big) \cdot 11 + 3 + \big(R \mid \text{rotl}_4(R, 1)\big) \Big) \bmod 16 \\
-F_2(R) &= \Big( \big(R \oplus \text{rotl}_4(R, 3)\big) \cdot 13 + 9 + \big(R \ \& \ \text{rotl}_4(R, 3)\big) \Big) \bmod 16 \\
-F_3(R) &= \Big( \big(R \oplus \text{rotl}_4(R, 1)\big) \cdot 5 + 7 + \big(R \oplus \text{rotl}_4(R, 2)\big) \Big) \bmod 16 \\
-F_4(R) &= \Big( \big(R \oplus \text{rotl}_4(R, 2)\big) \cdot 7 + 1 + \big(R \ \& \ \text{rotl}_4(R, 1)\big) \Big) \bmod 16 \\
-F_5(R) &= \Big( \big(R \oplus \text{rotl}_4(R, 3)\big) \cdot 3 + 11 + \big(R \mid \text{rotl}_4(R, 2)\big) \Big) \bmod 16 \\
-F_6(R) &= \Big( \big(R \oplus \text{rotl}_4(R, 1)\big) \cdot 11 + 5 + \big(R \ \& \ \text{rotl}_4(R, 1)\big) \Big) \bmod 16 \\
-F_7(R) &= \Big( \big(R \oplus \text{rotl}_4(R, 2)\big) \cdot 13 + 7 + \big(R \oplus \text{rotl}_4(R, 3)\big) \Big) \bmod 16
-\end{aligned}$$
+$$
+\begin{aligned}
+F_0(R) &= ( (R \oplus \text{rotl}_4(R, 1)) \cdot 7 + 5 + (R \wedge \ \text{rotl}_4(R, 2)) ) \bmod 16 \\
+F_1(R) &= ( (R \oplus \text{rotl}_4(R, 2)) \cdot 11 + 3 + (R \vee \text{rotl}_4(R, 1)) ) \bmod 16 \\
+F_2(R) &= ( (R \oplus \text{rotl}_4(R, 3)) \cdot 13 + 9 + (R \wedge \ \text{rotl}_4(R, 3)) ) \bmod 16 \\
+F_3(R) &= ( (R \oplus \text{rotl}_4(R, 1)) \cdot 5 + 7 + (R \oplus \text{rotl}_4(R, 2)) ) \bmod 16 \\
+F_4(R) &= ( (R \oplus \text{rotl}_4(R, 2)) \cdot 7 + 1 + (R \wedge \ \text{rotl}_4(R, 1)) ) \bmod 16 \\
+F_5(R) &= ( (R \oplus \text{rotl}_4(R, 3)) \cdot 3 + 11 + (R \vee \text{rotl}_4(R, 2)) ) \bmod 16 \\
+F_6(R) &= ( (R \oplus \text{rotl}_4(R, 1)) \cdot 11 + 5 + (R \wedge \ \text{rotl}_4(R, 1)) ) \bmod 16 \\
+F_7(R) &= ( (R \oplus \text{rotl}_4(R, 2)) \cdot 13 + 7 + (R \oplus \text{rotl}_4(R, 3)) ) \bmod 16
+\end{aligned}
+$$
 
 ---
 
@@ -85,20 +99,28 @@ F_7(R) &= \Big( \big(R \oplus \text{rotl}_4(R, 2)\big) \cdot 13 + 7 + \big(R \op
 *Proof:*
 Consider an arbitrary round $j$ mapping $(L_j, R_j) \mapsto (L_{j+1}, R_{j+1})$. 
 Given $(L_{j+1}, R_{j+1})$, the predecessor state is computed uniquely and deterministically as:
-$$\begin{aligned}
+
+$$
+\begin{aligned}
 R_j &= L_{j+1} \\
 L_j &= R_{j+1} \oplus F_j(L_{j+1})
-\end{aligned}$$
+\end{aligned}
+$$
+
 Because the function $F_j$ is evaluated on $R_j = L_{j+1}$ (which is known), $F_j$ does **not** need to be invertible for the Feistel round to be invertible. 
 Since every round $j \in \{0, \dots, 7\}$ is a bijection on $\mathbb{F}_2^4 \times \mathbb{F}_2^4$, the composition:
-$$N_{\text{bio}} = \Phi_7 \circ \Phi_6 \circ \Phi_5 \circ \Phi_4 \circ \Phi_3 \circ \Phi_2 \circ \Phi_1 \circ \Phi_0$$
-is an exact bijection. Therefore, $|\text{Im}(N_{\text{bio}})| = 256$, and $N_{\text{bio}} \in \mathcal{S}_{256}$. $\blacksquare$
+
+$$
+N_{\text{bio}} = \Phi_7 \circ \Phi_6 \circ \Phi_5 \circ \Phi_4 \circ \Phi_3 \circ \Phi_2 \circ \Phi_1 \circ \Phi_0
+$$
+
+is an exact bijection. Therefore, $|\text{Im}(N_{\text{bio}})| = 256$, and $N_{\text{bio}} \in \mathcal{S}_{256}$. Q.E.D.
 
 ---
 
 ## 4. The Complete 256-Element S-Box Substitution Table
 
-The complete, deterministic mapping $y = N_{\text{bio}}(x)$ is given in hexadecimal notation below, indexed by row (high nibble $x \gg 4$) and column (low nibble $x \ \& \ \mathtt{0x0F}$):
+The complete, deterministic mapping $y = N_{\text{bio}}(x)$ is given in hexadecimal notation below, indexed by row (high nibble $x \gg 4$) and column (low nibble $x \wedge \mathtt{0x0F}$):
 
 ```
        0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
@@ -128,15 +150,28 @@ The complete, deterministic mapping $y = N_{\text{bio}}(x)$ is given in hexadeci
 
 ### 5.1 Differential Uniformity ($\delta_{\max}$)
 The Difference Distribution Table $\text{DDT}(\Delta x, \Delta y)$ is defined for all $\Delta x, \Delta y \in \mathbb{F}_{2^8}$:
-$$\text{DDT}(\Delta x, \Delta y) = \Big| \big\{ x \in \mathbb{F}_{2^8} : N_{\text{bio}}(x) \oplus N_{\text{bio}}(x \oplus \Delta x) = \Delta y \big\} \Big|$$
+
+$$
+\text{DDT}(\Delta x, \Delta y) = | \{ x \in \mathbb{F}_{2^8} : N_{\text{bio}}(x) \oplus N_{\text{bio}}(x \oplus \Delta x) = \Delta y \} |
+$$
 
 The differential uniformity $\delta_{\max}$ is the maximum non-trivial entry:
-$$\delta_{\max} = \max_{\Delta x \ne 0, \; \Delta y} \text{DDT}(\Delta x, \Delta y)$$
+
+$$
+\delta_{\max} = \max_{\Delta x \ne 0, \; \Delta y} \text{DDT}(\Delta x, \Delta y)
+$$
 
 **Empirical Result:**
-$$\delta_{\max} = 10$$
+
+$$
+\delta_{\max} = 10
+$$
+
 The maximum differential characteristic probability across a single S-box is:
-$$p_{\max} = \frac{\delta_{\max}}{256} = \frac{10}{256} \approx 2^{-4.678}$$
+
+$$
+p_{\max} = \frac{\delta_{\max}}{256} = \frac{10}{256} \approx 2^{-4.678}
+$$
 
 *Comparison with standard primitives:*
 - DES S-Boxes: $\delta_{\max} = 16$ ($p_{\max} = 2^{-4.000}$)
@@ -145,13 +180,22 @@ $$p_{\max} = \frac{\delta_{\max}}{256} = \frac{10}{256} \approx 2^{-4.678}$$
 
 ### 5.2 Nonlinearity & Linear Approximation Table ($\mathcal{NL}$)
 For an input selection mask $\alpha \in \mathbb{F}_2^8$ and an output linear combination mask $\beta \in \mathbb{F}_2^8 \setminus \{0\}$, the Walsh-Hadamard transform of the component Boolean function $f_\beta(x) = \beta \cdot N_{\text{bio}}(x)$ is:
-$$\mathcal{W}_\beta(\alpha) = \sum_{x \in \mathbb{F}_{2^8}} (-1)^{\beta \cdot N_{\text{bio}}(x) \oplus \alpha \cdot x}$$
+
+$$
+\mathcal{W}_\beta(\alpha) = \sum_{x \in \mathbb{F}_{2^8}} (-1)^{\beta \cdot N_{\text{bio}}(x) \oplus \alpha \cdot x}
+$$
 
 The nonlinearity of the component Boolean function $f_\beta$ is defined by the standard cryptographic distance metric:
-$$\mathcal{NL}(f_\beta) = 2^{8-1} - \frac{1}{2} \max_{\alpha \in \mathbb{F}_2^8} |\mathcal{W}_\beta(\alpha)| = 128 - \frac{1}{2} \max_\alpha |\mathcal{W}_\beta(\alpha)|$$
+
+$$
+\mathcal{NL}(f_\beta) = 2^{8-1} - \frac{1}{2} \max_{\alpha \in \mathbb{F}_2^8} |\mathcal{W}_\beta(\alpha)| = 128 - \frac{1}{2} \max_\alpha |\mathcal{W}_\beta(\alpha)|
+$$
 
 The vectorial nonlinearity of the S-box is the minimum over all 255 non-zero linear combinations:
-$$\mathcal{NL}(N_{\text{bio}}) = \min_{\beta \in \mathbb{F}_2^8 \setminus \{0\}} \mathcal{NL}(f_\beta)$$
+
+$$
+\mathcal{NL}(N_{\text{bio}}) = \min_{\beta \in \mathbb{F}_2^8 \setminus \{0\}} \mathcal{NL}(f_\beta)
+$$
 
 **Coordinate Nonlinearities (Individual Output Bits $y_0$ to $y_7$):**
 - $\text{Bit } 0 \ (\beta = \mathtt{0x01}): \max |\mathcal{W}| = 48 \implies \mathcal{NL} = 128 - 24 = 104$
@@ -167,20 +211,39 @@ $$\mathcal{NL}(N_{\text{bio}}) = \min_{\beta \in \mathbb{F}_2^8 \setminus \{0\}}
 
 **Overall Vectorial Minimum Nonlinearity:**
 Across all 255 non-zero linear combinations $\beta \in \{1, \dots, 255\}$, the maximum Walsh spectral value is $\max_{\alpha, \beta} |\mathcal{W}_\beta(\alpha)| = 64$ (which occurs at $\beta = \mathtt{0x35}$):
-$$\mathcal{NL}(N_{\text{bio}}) = 128 - \frac{64}{2} = \mathbf{96}$$
+
+$$
+\mathcal{NL}(N_{\text{bio}}) = 128 - \frac{64}{2} = \mathbf{96}
+$$
+
 The maximum linear correlation bias across any linear approximation is:
-$$\epsilon_{\max} = \frac{\max |\mathcal{W}|}{2 \cdot 256} = \frac{32}{256} = 2^{-3.000}$$
+
+$$
+\epsilon_{\max} = \frac{\max |\mathcal{W}|}{2 \cdot 256} = \frac{32}{256} = 2^{-3.000}
+$$
 
 ### 5.3 Algebraic Degree & Algebraic Normal Form (ANF)
 Let $y = (y_7, y_6, \dots, y_0) = N_{\text{bio}}(x_7, x_6, \dots, x_0)$. Each coordinate function $y_k$ can be expressed as a unique multivariate polynomial over $\mathbb{F}_2$:
-$$y_k(x_0, \dots, x_7) = \bigoplus_{u \in \{0, 1\}^8} a_u \prod_{j=0}^{7} x_j^{u_j}, \quad a_u \in \{0, 1\}$$
+
+$$
+y_k(x_0, \dots, x_7) = \bigoplus_{u \in \{0, 1\}^8} a_u \prod_{j=0}^{7} x_j^{u_j}, \quad a_u \in \{0, 1\}
+$$
 
 The algebraic degree $\deg(y_k)$ is the maximum degree of any monomial with $a_u = 1$:
-$$\deg(y_k) = \max \Big\{ w_H(u) : a_u = 1 \Big\}$$
+
+$$
+\deg(y_k) = \max \{ w_H(u) : a_u = 1 \}
+$$
 
 **Empirical Result across all 8 output coordinates:**
-$$\deg(y_0) = 7, \quad \deg(y_1) = 7, \quad \deg(y_2) = 7, \quad \deg(y_3) = 7$$
-$$\deg(y_4) = 7, \quad \deg(y_5) = 7, \quad \deg(y_6) = 7, \quad \deg(y_7) = 7$$
+
+$$
+\deg(y_0) = 7, \quad \deg(y_1) = 7, \quad \deg(y_2) = 7, \quad \deg(y_3) = 7
+$$
+
+$$
+\deg(y_4) = 7, \quad \deg(y_5) = 7, \quad \deg(y_6) = 7, \quad \deg(y_7) = 7
+$$
 
 *Cryptanalytic Consequence:*  
 Since $\deg(y_k) = 7$ for all $k \in \{0, \dots, 7\}$, $N_{\text{bio}}$ achieves the **maximum possible algebraic degree** for any 8-bit bijection (degree 8 is impossible for a permutation due to the Picard-Vandermonde parity property). This completely thwarts algebraic interpolation attacks and guarantees exponential degree growth across cipher rounds.
@@ -188,12 +251,22 @@ Since $\deg(y_k) = 7$ for all $k \in \{0, \dots, 7\}$, $N_{\text{bio}}$ achieves
 ### 5.4 Fixed Point and Cycle Decomposition Analysis
 - **Isolated Fixed Points:** $\{x : N_{\text{bio}}(x) = x\} = \{140, 198\} \ (\mathtt{0x8C}, \mathtt{0xC6})$.
   *Defense:* In the round transformation, round constants $\mathcal{RC}_i[r, c]$ are added immediately after substitution:
-  $$\mathcal{S}_{\text{sub}}[r, c] = N_{\text{bio}}(\mathcal{C}[r, c]) \oplus \mathcal{RC}_i[r, c]$$
+  
+
+$$
+\mathcal{S}_{\text{sub}}[r, c] = N_{\text{bio}}(\mathcal{C}[r, c]) \oplus \mathcal{RC}_i[r, c]
+$$
+
   Since $\mathcal{RC}_i[r, c] \ne 0$, these isolated fixed points are broken in every round and cannot form persistent iterative fixed points.
 - **Opposite Fixed Points:** $\{x : N_{\text{bio}}(x) = x \oplus \mathtt{0xFF}\} = \emptyset$ (Count = 0).
 - **Cycle Decomposition in $\mathcal{S}_{256}$:**
   $N_{\text{bio}}$ decomposes into 8 disjoint permutation cycles:
-  $$\text{Lengths} = [109, 74, 42, 14, 8, 7, 1, 1]$$
+  
+
+$$
+\text{Lengths} = [109, 74, 42, 14, 8, 7, 1, 1]
+$$
+
   The dominant cycle of length 109 ensures high orbit complexity and rapid state mixing under repeated iteration.
 - **Strict Avalanche Criterion (SAC):**
   Average single-bit output flip probability: $\mu = 0.5005$ (ideal: $0.5000$).
@@ -203,10 +276,13 @@ Since $\deg(y_k) = 7$ for all $k \in \{0, \dots, 7\}$, $N_{\text{bio}}$ achieves
 ## 6. The Inverse S-Box $N_{\text{bio}}^{-1}$
 
 To verify bidirectionality and formal mathematical invertibility, the inverse mapping $N_{\text{bio}}^{-1}: \mathbb{F}_{2^8} \to \mathbb{F}_{2^8}$ unrolls the Feistel network in reverse order ($j = 7, 6, \dots, 0$):
-$$\begin{aligned}
+
+$$
+\begin{aligned}
 R_j &= L_{j+1} \\
 L_j &= R_{j+1} \oplus F_j(L_{j+1})
-\end{aligned}$$
+\end{aligned}
+$$
 
 The identity $N_{\text{bio}}^{-1}(N_{\text{bio}}(x)) = x$ holds with **100% precision for all 256 elements**.
 
