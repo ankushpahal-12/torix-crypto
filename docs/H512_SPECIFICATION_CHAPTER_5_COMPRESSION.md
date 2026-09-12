@@ -30,7 +30,7 @@ graph TD
     classDef process fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px,color:#174ea6;
     classDef xorNode fill:#fef7e0,stroke:#f9ab00,stroke-width:2px,color:#b06000;
 
-    BM["Message Block B_m (64 Bytes)"]:::state --> DISP["Orthogonal Message Dispersal D(B_m)<br/>M_disp[r, c] = B_m[8r + ((c + r) mod 8)]"]:::process
+    BM["Message Block B_m (64 Bytes)"]:::state --> DISP["Orthogonal Message Dispersal D(B_m)<br/>M_disp(r, c) = B_m(8r + ((c + r) mod 8))"]:::process
     S_PREV["Chaining State S_{m-1} (512 bits)"]:::state --> XOR1["Toroidal HAIFA Ingestion<br/>S_{m,0} = S_{m-1} ^ M_disp ^ diag(t_m)"]:::xorNode
     DISP --> XOR1
     COUNTER["HAIFA Bit Counter t_m<br/>min(m * 512, length_bits)"]:::state --> XOR1
@@ -134,14 +134,14 @@ graph TD
 
     S_N["Final Chaining State S_N (8x8 Octets / 512 bits)"]:::state --> MODE{"Domain Separation Tag tau"}
     
-    MODE -- tau = 0x00 (H-512) --> RAW["Direct Row-Major Serialization<br/>Digest[8r + c] = S_N[r, c]"]:::process
+    MODE -- tau = 0x00 (H-512) --> RAW["Direct Row-Major Serialization<br/>Digest(8r + c) = S_N(r, c)"]:::process
     RAW --> DIGEST512["H-512 Final Digest (64 Bytes / 512 Bits)"]:::output
     
     MODE -- tau = 0x01 (H-256) --> SPLIT["State Row Partitioning"]:::process
-    SPLIT --> TOP["Top Half: Rows 0..3 (32 Bytes)<br/>S_N[r, c] for r in 0..3"]:::state
-    SPLIT --> BOT["Bottom Half: Rows 4..7 (32 Bytes)<br/>S_N[r+4, c] for r in 0..3"]:::state
+    SPLIT --> TOP["Top Half: Rows 0..3 (32 Bytes)<br/>S_N(r, c) for r in 0..3"]:::state
+    SPLIT --> BOT["Bottom Half: Rows 4..7 (32 Bytes)<br/>S_N(r+4, c) for r in 0..3"]:::state
     BOT --> FEISTEL["Cell Permutation N_bio<br/>8-Round Balanced Mini-Feistel"]:::process
-    TOP --> XFOLD["Nonlinear Cross-Fold XOR<br/>H256[8r + c] = S_N[r, c] ^ N_bio(S_N[r+4, c])"]:::process
+    TOP --> XFOLD["Nonlinear Cross-Fold XOR<br/>H256(8r + c) = S_N(r, c) ^ N_bio(S_N(r+4, c))"]:::process
     FEISTEL --> XFOLD
     XFOLD --> DIGEST256["H-256 Final Digest (32 Bytes / 256 Bits)"]:::output
 ```

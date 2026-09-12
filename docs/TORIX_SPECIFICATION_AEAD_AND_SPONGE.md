@@ -102,14 +102,14 @@ graph TD
         I3 --> AD_CHK{"|AD| > 0?"}
         AD_CHK -- Yes --> AD_PAD["NIST 10*1 Framing Pad<br/>Block Size = 32 Bytes"]:::state
         AD_PAD --> AD_ABS["Absorb AD_i: S_rate ^= AD_i<br/>Iterate Permutation P_8"]:::phase
-        AD_ABS --> AD_TAG["Inject Domain Tag: S[7,7] ^= tau_AD"]:::state
+        AD_ABS --> AD_TAG["Inject Domain Tag: S(7,7) ^= tau_AD"]:::state
         AD_CHK -- No --> AD_TAG
     end
 
     subgraph Phase_3_Enc ["Phase 3: Plaintext Encryption"]
         AD_TAG --> ENC_CHK{"|P| > 0?"}
         ENC_CHK -- Yes --> ENC_STREAM["Streaming Encryption:<br/>C_i = P_i ^ S_rate<br/>S_rate = C_i (Ciphertext Feedback)<br/>Iterate P_8"]:::phase
-        ENC_STREAM --> ENC_TAG["Inject Domain Tag: S[7,7] ^= tau_ENC"]:::state
+        ENC_STREAM --> ENC_TAG["Inject Domain Tag: S(7,7) ^= tau_ENC"]:::state
         ENC_CHK -- No --> ENC_TAG
     end
 

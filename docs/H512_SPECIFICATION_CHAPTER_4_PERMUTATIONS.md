@@ -24,13 +24,13 @@ graph TD
     classDef pass fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px,color:#174ea6;
     classDef branch fill:#fef7e0,stroke:#f9ab00,stroke-width:2px,color:#b06000;
 
-    S_IN["Input State S_i (8x8 Octets / 512 bits)"]:::state --> P1["Pass 1: Toroidal Context Coupling & Substitution<br/>4-Neighbor Von Neumann Context + N_bio(S) ^ RC[i]"]:::pass
+    S_IN["Input State S_i (8x8 Octets / 512 bits)"]:::state --> P1["Pass 1: Toroidal Context Coupling & Substitution<br/>4-Neighbor Von Neumann Context + N_bio(S) ^ RC(i)"]:::pass
     P1 --> P2["Pass 2: Involutive Circulant MDS Hyper-Diffusion<br/>Column-wise Mixing via circ(02, 03, 01, 01)"]:::pass
     P2 --> CHK{"Family Check<br/>Round i mod 4 in {1, 3}?"}:::branch
     CHK -- Yes (Families B, D) --> P3["Pass 3: Regional Quadrant Swap pi_quad<br/>Antipodal Exchange Q0 <-> Q3, Q1 <-> Q2"]:::pass
     CHK -- No (Families A, C) --> P4["Pass 4: Global Permutation Layer"]:::pass
     P3 --> P4
-    P4 --> S_OUT["Transformed Output State S_{i+1} (512 bits)"]:::state
+    P4 --> S_OUT["Transformed Output State S(i+1) (512 bits)"]:::state
 ```
 
 ---

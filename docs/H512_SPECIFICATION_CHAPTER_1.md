@@ -81,12 +81,12 @@ $$
 
 ```mermaid
 graph TD
-    subgraph Torus_Geometry [2D Torus Discrete Manifold: Z_8 x Z_8]
-        North[North Neighbor: S[(r-1) mod 8, c]] --> S[Target Cell: S[r,c]]
-        South[South Neighbor: S[(r+1) mod 8, c]] --> S
-        West[West Neighbor: S[r, (c-1) mod 8]] --> S
-        East[East Neighbor: S[r, (c+1) mod 8]] --> S
-        Jump[Antipodal Jump: S[(r+3) mod 8, (c+5) mod 8]] -.-> S
+    subgraph Torus_Geometry ["2D Torus Discrete Manifold: Z_8 x Z_8"]
+        North["North Neighbor: S(r-1 mod 8, c)"] --> S["Target Cell: S(r, c)"]
+        South["South Neighbor: S(r+1 mod 8, c)"] --> S
+        West["West Neighbor: S(r, c-1 mod 8)"] --> S
+        East["East Neighbor: S(r, c+1 mod 8)"] --> S
+        Jump["Antipodal Jump: S(r+3 mod 8, c+5 mod 8)"] -.-> S
     end
 ```
 

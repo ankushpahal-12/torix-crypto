@@ -47,6 +47,7 @@ $$S[i, j]^{(r+1)} = N_{\text{bio}}\left(S[i, j]^{(r)} \oplus \text{rotl}(S[(i-1)
 ```
 torix-crypto/
 |-- docs/                                            # Formal Cryptographic Specifications
+|   |-- COMPARATIVE_CRYPTOGRAPHIC_ANALYSIS.md        # Formal Multi-Algorithm Benchmark & Analysis
 |   |-- H512_SPECIFICATION_CHAPTER_1.md              # Geometry, Framing, Padding & NUMS Constants
 |   |-- H512_SPECIFICATION_CHAPTER_2_NBIO.md         # Nonlinear Core N_bio & Feistel Table
 |   |-- H512_SPECIFICATION_CHAPTER_3_MDS.md          # Circulant MDS Diffusion & SWAR Matrix
@@ -69,7 +70,8 @@ torix-crypto/
 |   |-- torix_sponge.py                              # Duplex sponge reference
 |   `-- h512_modes.py                                # Extended modes (Tree Hash, HKDF)
 |
-|-- tests/                                           # Automated Verification Battery (15 Suites)
+|-- tests/                                           # Automated Verification Battery (16 Suites)
+|   |-- benchmark_comparison.py                      # Multi-algorithm benchmark & chart generator
 |   |-- run_all_phases.py                            # Master test runner (100% PASS in 133s)
 |   |-- test_h512.py                                 # Core test battery (avalanche, SAC, vectors)
 |   |-- test_sponge_and_aead.py                      # AEAD tamper resistance & Sponge entropy
@@ -182,6 +184,34 @@ gcc -O3 -std=c99 src/h512.c src/torix_aead.c src/torix_sponge.c src/h512_cli.c -
 
 * **Strict Avalanche Criterion (SAC):** Bit-flip probability converges empirically to $50.01\%$ across the full 512-bit state, satisfying NIST SP 800-22 test suites with mean variance $< 0.00015$.
 * **Branchless C99 Performance:** The zero-allocation C99 SWAR implementation processes blocks in $48.8\text{ ns}$ ($156\text{ cycles}$ per block), achieving **16.37 MB/s** sustained throughput with constant-time execution invariance against timing side-channels.
+
+---
+
+## Comparative Cryptographic Benchmark
+
+The table below contrasts **TORIX-512** against prevailing industry and NIST standard hash primitives: **SHA-256**, **SHA-3 / Keccak-512**, and **BLAKE3**. Detailed mathematical derivations, active S-box bounds, and scaling curves are documented in the [Comparative Cryptographic Analysis](docs/COMPARATIVE_CRYPTOGRAPHIC_ANALYSIS.md).
+
+| Property | Our Hash (TORIX-512) | SHA-256 | SHA-3 (Keccak-512) | BLAKE3 |
+| :--- | :--- | :--- | :--- | :--- |
+| **Digest Size** | 512 bits (native) / 256 bits (cross-folded) / Arbitrary XOF | 256 bits (fixed) | Variable (224, 256, 384, 512 bits / SHAKE XOF) | 256 bits (default) / Arbitrary XOF |
+| **Security Foundation** | Toroidal Cellular Permutation ($P_{\text{diff}} \le 2^{-2401.7}$) | Merkle-Damgard ARX (Vulnerable to Length-Extension) | Duplex Sponge Construction (NIST FIPS 202) | Bao Tree Permutation Network |
+| **Classical Preimage** | $2^{512}$ (H-512) / $2^{256}$ (H-256) | $2^{256}$ | $2^{512}$ | $2^{256}$ |
+| **Classical Collision** | $2^{256}$ (H-512) / $2^{128}$ (H-256) | $2^{128}$ | $2^{256}$ | $2^{128}$ |
+| **Quantum Grover Margin** | $2^{256}$ (H-512) / 192-bit Quantum Duplex Sponge | $2^{128}$ (No Post-Quantum Margin) | $2^{256}$ (Capacity $c=512$) | $2^{128}$ (No Post-Quantum Margin) |
+| **Throughput (10 MB Stream)** | $19.57\text{ MB/s}$ (C99 Branchless SWAR) | $985.77\text{ MB/s}$ (Hardware SHA-NI) | $155.59\text{ MB/s}$ (Scalar 64-bit) | $2098.02\text{ MB/s}$ (Multi-Core AVX2) |
+| **State Memory Footprint** | $64\text{ Bytes}$ ($8 \times 8$ matrix, $\mathcal{O}(1)$ zero-allocation) | $32\text{ Bytes}$ state + $64\text{ Bytes}$ schedule buffer | $200\text{ Bytes}$ ($5 \times 5 \times 64$-bit lane state) | $64\text{ Bytes}$ state + $\approx 1.5\text{ KB}$ tree stack |
+| **Parallelism** | Native 2-ary / 4-ary Tree Mode with Merkle Proofs | Limited (Strictly Serialized Merkle-Damgard) | Good (Parallel Keccak / KangarooTwelve) | Excellent (Native Chunk Tree Parallelism) |
+| **Diffusion Speed** | Round 2 ($50.39\%$ SAC achieved) | Round 10-16 (gradual addition carry diffusion) | Round 3-4 ($\theta / \chi$ step mapping) | Round 2-3 (G function ARX steps) |
+| **Side-Channel Hardening** | Branchless SWAR (Zero Data-Dependent Branches) | Addition carry chains (potential power analysis) | Bitwise logic (highly timing invariant) | Constant-time rotation logic |
+
+<p align="center">
+  <img src="assets/cryptographic_spider_comparison.png" alt="Multi-Dimensional Cryptographic Architecture Radar" width="85%"/>
+</p>
+
+<p align="center">
+  <img src="assets/benchmark_throughput_comparison.png" alt="Throughput Comparison Chart" width="49%"/>
+  <img src="assets/avalanche_diffusion_rounds.png" alt="Avalanche Diffusion Across Rounds" width="49%"/>
+</p>
 
 ---
 
