@@ -39,24 +39,24 @@ graph TD
     end
 ```
 
-### 1.1 Permutation Hierarchy: $\mathcal{P}_{16}$ vs. $\mathcal{P}_8$
+### 1.1 Permutation Hierarchy: P_16 vs. P_8
 To optimize throughput without compromising provable margin:
-- **Full Permutation $\mathcal{P}_{16}$ (16 Rounds):**
-  
+
+**Full Permutation P_16 (16 Rounds):**
 
 $$
 \mathcal{S}^{(16)} = (\mathcal{R}_{15} \circ \mathcal{R}_{14} \circ \cdots \circ \mathcal{R}_0)(\mathcal{S}^{(0)})
 $$
 
-  Executes all four macrocycles ($A \to B \to C \to D \times 4$). Deployed during initialization, key absorption, finalization, and tag generation where maximal margin ($n_{\text{act}} \ge 544$, $P_{\text{diff}} \le 2^{-2401.7}$) is mandatory.
-- **Reduced Permutation $\mathcal{P}_8$ (8 Rounds):**
-  
+Executes all four macrocycles ($A \to B \to C \to D \times 4$). Deployed during initialization, key absorption, finalization, and tag generation where maximal margin ($n_{\text{act}} \ge 544$, $P_{\text{diff}} \le 2^{-2401.7}$) is mandatory.
+
+**Reduced Permutation P_8 (8 Rounds):**
 
 $$
 \mathcal{S}^{(8)} = (\mathcal{R}_7 \circ \mathcal{R}_6 \circ \cdots \circ \mathcal{R}_0)(\mathcal{S}^{(0)})
 $$
 
-  Executes two full macrocycle cycles ($A \to B \to C \to D \times 2$), activating $\ge 272$ S-boxes. Deployed in the streaming absorption and encryption phases to achieve high performance on SIMD and superscalar architectures.
+Executes two full macrocycle cycles ($A \to B \to C \to D \times 2$), activating $\ge 272$ S-boxes. Deployed in the streaming absorption and encryption phases to achieve high performance on SIMD and superscalar architectures.
 
 ---
 

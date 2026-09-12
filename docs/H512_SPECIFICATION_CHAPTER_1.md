@@ -236,7 +236,7 @@ r=7: [ b56   b57   b58   b59   b60   b61   b62   b63  ]
 The Dispersal Operator $\mathcal{D}: (\mathbb{F}_{2^8})^{64} \to \mathcal{M}_{8 \times 8}(\mathbb{F}_{2^8})$ maps a 64-byte block $B = (b_0, \dots, b_{63})$ to an $8 \times 8$ matrix $M_{\text{disp}}$:
 
 $$
-M_{\text{disp}}[r, c] = B[8r + c] \oplus \text{rotl}_8(B\big[8 \cdot ((r + 3) \bmod 8) + ((c + 5) \bmod 8)\big], \, 3)
+M_{\text{disp}}[r, c] = B[8r + c] \oplus \text{rotl}_8(B[8 \cdot ((r + 3) \bmod 8) + ((c + 5) \bmod 8)], \, 3)
 $$
 
 where $\text{rotl}_8(x, n) = ((x \ll n) \vee (x \gg (8 - n))) \wedge \mathtt{0xFF}$.
@@ -294,7 +294,7 @@ $$
 For round $i \in \{0, 1, \dots, 15\}$, row $r \in \{0, \dots, 7\}$, and column $c \in \{0, \dots, 7\}$:
 
 $$
-\text{Prime Offset Index: } \quad k(i, r, c) = 64 + 64 \cdot i + 8 \cdot r + c
+ k(i, r, c) = 64 + 64 \cdot i + 8 \cdot r + c
 $$
 
 ### 6.3 Mathematical Formula

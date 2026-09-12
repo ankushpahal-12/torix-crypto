@@ -75,17 +75,17 @@ Each round function $F_j: \mathbb{Z}_{16} \to \mathbb{Z}_{16}$ combines:
 - Arithmetic multiplication by units in the ring $(\mathbb{Z}_{16}, +, \times)$ (specifically coprime units $\{3, 5, 7, 11, 13\}$).
 - Additive constant shifts in $\mathbb{Z}_{16}$.
 - Cyclic nibble rotations $\text{rotl}_4(R, n) = ((R \ll n) \vee (R \gg (4 - n))) \wedge \mathtt{0x0F}$.
-- Non-commutative bitwise Boolean operators ($\&$, $\mid$, $\oplus$).
+- Non-commutative bitwise Boolean operators (&, |, ^).
 
 $$
 \begin{aligned}
-F_0(R) &= ( (R \oplus \text{rotl}_4(R, 1)) \cdot 7 + 5 + (R \wedge \ \text{rotl}_4(R, 2)) ) \bmod 16 \\
+F_0(R) &= ( (R \oplus \text{rotl}_4(R, 1)) \cdot 7 + 5 + (R \wedge \text{rotl}_4(R, 2)) ) \bmod 16 \\
 F_1(R) &= ( (R \oplus \text{rotl}_4(R, 2)) \cdot 11 + 3 + (R \vee \text{rotl}_4(R, 1)) ) \bmod 16 \\
-F_2(R) &= ( (R \oplus \text{rotl}_4(R, 3)) \cdot 13 + 9 + (R \wedge \ \text{rotl}_4(R, 3)) ) \bmod 16 \\
+F_2(R) &= ( (R \oplus \text{rotl}_4(R, 3)) \cdot 13 + 9 + (R \wedge \text{rotl}_4(R, 3)) ) \bmod 16 \\
 F_3(R) &= ( (R \oplus \text{rotl}_4(R, 1)) \cdot 5 + 7 + (R \oplus \text{rotl}_4(R, 2)) ) \bmod 16 \\
-F_4(R) &= ( (R \oplus \text{rotl}_4(R, 2)) \cdot 7 + 1 + (R \wedge \ \text{rotl}_4(R, 1)) ) \bmod 16 \\
+F_4(R) &= ( (R \oplus \text{rotl}_4(R, 2)) \cdot 7 + 1 + (R \wedge \text{rotl}_4(R, 1)) ) \bmod 16 \\
 F_5(R) &= ( (R \oplus \text{rotl}_4(R, 3)) \cdot 3 + 11 + (R \vee \text{rotl}_4(R, 2)) ) \bmod 16 \\
-F_6(R) &= ( (R \oplus \text{rotl}_4(R, 1)) \cdot 11 + 5 + (R \wedge \ \text{rotl}_4(R, 1)) ) \bmod 16 \\
+F_6(R) &= ( (R \oplus \text{rotl}_4(R, 1)) \cdot 11 + 5 + (R \wedge \text{rotl}_4(R, 1)) ) \bmod 16 \\
 F_7(R) &= ( (R \oplus \text{rotl}_4(R, 2)) \cdot 13 + 7 + (R \oplus \text{rotl}_4(R, 3)) ) \bmod 16
 \end{aligned}
 $$
@@ -249,25 +249,9 @@ $$
 Since $\deg(y_k) = 7$ for all $k \in \{0, \dots, 7\}$, $N_{\text{bio}}$ achieves the **maximum possible algebraic degree** for any 8-bit bijection (degree 8 is impossible for a permutation due to the Picard-Vandermonde parity property). This completely thwarts algebraic interpolation attacks and guarantees exponential degree growth across cipher rounds.
 
 ### 5.4 Fixed Point and Cycle Decomposition Analysis
-- **Isolated Fixed Points:** $\{x : N_{\text{bio}}(x) = x\} = \{140, 198\} \ (\mathtt{0x8C}, \mathtt{0xC6})$.
-  *Defense:* In the round transformation, round constants $\mathcal{RC}_i[r, c]$ are added immediately after substitution:
-  
-
-$$
-\mathcal{S}_{\text{sub}}[r, c] = N_{\text{bio}}(\mathcal{C}[r, c]) \oplus \mathcal{RC}_i[r, c]
-$$
-
-  Since $\mathcal{RC}_i[r, c] \ne 0$, these isolated fixed points are broken in every round and cannot form persistent iterative fixed points.
-- **Opposite Fixed Points:** $\{x : N_{\text{bio}}(x) = x \oplus \mathtt{0xFF}\} = \emptyset$ (Count = 0).
-- **Cycle Decomposition in $\mathcal{S}_{256}$:**
-  $N_{\text{bio}}$ decomposes into 8 disjoint permutation cycles:
-  
-
-$$
-\text{Lengths} = [109, 74, 42, 14, 8, 7, 1, 1]
-$$
-
-  The dominant cycle of length 109 ensures high orbit complexity and rapid state mixing under repeated iteration.
+* **Isolated Fixed Points:** $\{x : N_{\text{bio}}(x) = x\} = \{140, 198\} \ (\mathtt{0x8C}, \mathtt{0xC6})$. In the round transformation, round constants are injected immediately after substitution: $\mathcal{S}_{\text{sub}}[r, c] = N_{\text{bio}}(\mathcal{C}[r, c]) \oplus \mathcal{RC}_i[r, c]$. Since $\mathcal{RC}_i[r, c] \ne 0$, these isolated fixed points are broken in every round and cannot form persistent iterative fixed points.
+* **Opposite Fixed Points:** $\{x : N_{\text{bio}}(x) = x \oplus \mathtt{0xFF}\} = \emptyset$ (Count = 0).
+* **Cycle Decomposition in $\mathcal{S}_{256}$:** $N_{\text{bio}}$ decomposes into 8 disjoint permutation cycles with lengths $[109, 74, 42, 14, 8, 7, 1, 1]$. The dominant cycle of length 109 ensures high orbit complexity and rapid state mixing under repeated iteration.
 - **Strict Avalanche Criterion (SAC):**
   Average single-bit output flip probability: $\mu = 0.5005$ (ideal: $0.5000$).
 

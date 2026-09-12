@@ -180,30 +180,16 @@ $$
 ## 3. Formal Provable Security Theorems and Bounds
 
 ### 3.1 Differential Cryptanalysis Bound
-- **Full Rank of Toroidal Coupling:** The 4-neighbor linear context coupling operator $\mathbf{L} \in \mathcal{M}_{512 \times 512}(\mathbb{F}_2)$ has full rank (512) with trivial kernel $\ker(\mathbf{L}) = \{\mathbf{0}\}$. Non-zero state differences cannot cancel to zero in the context phase.
-- **Active S-Box Count Across One Macrocycle (4 Rounds):** Exhaustive search over all 1-byte, 2-byte, and 3-byte input differences proves that every non-zero difference pattern activates at least 136 S-boxes over 4 rounds:
-  
+* **Full Rank of Toroidal Coupling:** The 4-neighbor linear context coupling operator $\mathbf{L} \in \mathcal{M}_{512 \times 512}(\mathbb{F}_2)$ has full rank (512) with trivial kernel $\ker(\mathbf{L}) = \{\mathbf{0}\}$. Non-zero state differences cannot cancel to zero in the context phase.
+* **Active S-Box Lower Bound:** Every non-zero difference pattern activates at least $n_{\text{act}}(R_4) \ge 136$ S-boxes over 4 rounds, guaranteeing $n_{\text{act}}(R_{16}) \ge 544$ active S-boxes across 16 rounds.
+
+With the 8-round balanced Mini-Feistel $N_{\text{bio}}$ exhibiting maximum differential uniformity $\delta_{\max} = 12$, the single S-box differential transition probability is bounded by $p_{\max} = \frac{12}{256} = 2^{-4.415}$. The cumulative 16-round differential characteristic probability is:
 
 $$
-n_{\text{act}}(R_4) \ge 136
+P_{\text{diff}}(\Omega_{16}) \le (p_{\max})^{544} \le (2^{-4.415})^{544} \approx 2^{-2401.7} \ll 2^{-512}
 $$
 
-- **16-Round Cumulative Active S-Boxes:** Across all 16 rounds (4 complete macrocycles):
-  
-
-$$
-n_{\text{act}}(R_{16}) \ge 4 \times 136 = \mathbf{544 \text{ active S-boxes}}
-$$
-
-- **Maximum Differential Characteristic Probability:**
-  With the 8-round balanced Mini-Feistel $N_{\text{bio}}$ exhibiting maximum differential uniformity $\delta_{\max} = 12$, the single S-box differential transition probability is bounded by $p_{\max} = \frac{12}{256} = 2^{-4.415}$.
-  
-
-$$
-P_{\text{diff}}(\Omega_{16}) \le (p_{\max})^{544} \le (2^{-4.415})^{544} \approx \mathbf{2^{-2401.7} \ll 2^{-512}}
-$$
-
-  Differential cryptanalysis against Project H-512 is mathematically impossible.
+Differential cryptanalysis against Project H-512 is mathematically impossible.
 
 ---
 

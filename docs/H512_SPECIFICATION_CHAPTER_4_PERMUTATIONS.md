@@ -61,12 +61,7 @@ The permutation $\pi_{\text{shift}}$ decomposes into **20 disjoint cycles**:
   - Row 7: $(56 \to 63 \to 62 \to 61 \to 60 \to 59 \to 58 \to 57 \to 56)$
 - **Four 4-cycles:** Rows with $\gcd(r, 8) = 2$ (Rows 2 and 6) each decompose into two 4-cycles.
 - **Four 2-cycles:** The row with $\gcd(r, 8) = 4$ (Row 4) decomposes into four 2-cycles.
-- **Eight 1-cycles (Fixed Points):** Row 0 undergoes zero shift ($r = 0$); its 8 cells are fixed points:
-  
-
-$$
-\text{Fixed}(\pi_{\text{shift}}) = \{0, 1, 2, 3, 4, 5, 6, 7\}
-$$
+- **Eight 1-cycles (Fixed Points):** Row 0 undergoes zero shift ($r = 0$); its 8 cells are fixed points: $\text{Fixed}(\pi_{\text{shift}}) = \{0, 1, 2, 3, 4, 5, 6, 7\}$.
 
 #### Explicit 64-Element Mapping Table:
 ```
@@ -102,12 +97,7 @@ $$
 - $\pi_{\text{trans}}$ is an **algebraic involution**: $\pi_{\text{trans}} \circ \pi_{\text{trans}} = \text{id}_{\mathcal{S}_{64}}$.
 - Decomposes into **36 disjoint cycles**:
   - **28 Transposition 2-cycles:** All off-diagonal coordinate pairs $(8r + c \leftrightarrow 8c + r)$ for $r < c$.
-  - **8 Fixed Points (Main Diagonal):** Coordinates where $r = c$:
-    
-
-$$
-\text{Fixed}(\pi_{\text{trans}}) = \{0, 9, 18, 27, 36, 45, 54, 63\}
-$$
+  - **8 Fixed Points (Main Diagonal):** Coordinates where $r = c$: $\text{Fixed}(\pi_{\text{trans}}) = \{0, 9, 18, 27, 36, 45, 54, 63\}$.
 
 #### Cryptanalytic Interaction with Column MDS:
 The MDS layer mixes along vertical columns ($c = \text{const}$). Applying $\pi_{\text{trans}}$ immediately converts vertically mixed elements into **horizontal rows**. In the subsequent round, the 4-neighbor context coupling layer diffuses these horizontal elements across orthogonal vertical columns, establishing rigorous bidirectional spatial dispersion.
@@ -185,12 +175,7 @@ $$
 - $\pi_{\text{quad}}$ is an **involution**: $\pi_{\text{quad}} \circ \pi_{\text{quad}} = \text{id}_{\mathcal{S}_{64}}$.
 - Decomposes into **exactly 32 disjoint 2-cycles**.
 - **Fixed Points:** $\text{Fixed}(\pi_{\text{quad}}) = \emptyset$ (Zero fixed points).
-- Every coordinate shifts by the maximal discrete toroidal geodesic distance:
-  
-
-$$
-d_{\mathbb{T}}((r, c), \pi_{\text{quad}}(r, c)) = |(r+4) - r \pmod 8| + |(c+4) - c \pmod 8| = 4 + 4 = 8
-$$
+- Every coordinate shifts by the maximal discrete toroidal geodesic distance: $d_{\mathbb{T}}((r, c), \pi_{\text{quad}}(r, c)) = |(r+4) - r \pmod 8| + |(c+4) - c \pmod 8| = 4 + 4 = 8$.
 
 #### Explicit 64-Element Mapping Table:
 ```
@@ -231,12 +216,12 @@ graph LR
 ```
 
 ### 2.1 Macrocycle Specification Matrix
-| Macrocycle Family | Round Index $i \bmod 4$ | Von Neumann Rotations $(\alpha, \beta, \gamma, \delta)$ | Quadrant Swap $\pi_{\text{quad}}$ | Global Spatial Permutation | Rounds Active |
+| Macrocycle Family | Round Index (i mod 4) | Von Neumann Rotations (alpha, beta, gamma, delta) | Quadrant Swap pi_quad | Global Spatial Permutation | Rounds Active |
 | :--- | :---: | :---: | :---: | :--- | :---: |
-| **Family A** | $0$ | $(1, 2, 3, 5)$ | Disabled | Cyclic ShiftRows ($\pi_{\text{shift}}$) | $0, 4, 8, 12$ |
-| **Family B** | $1$ | $(3, 5, 1, 7)$ | **Active** | Matrix Transposition ($\pi_{\text{trans}}$) | $1, 5, 9, 13$ |
-| **Family C** | $2$ | $(5, 1, 7, 3)$ | Disabled | ShiftRows + Transposition ($\pi_{\text{trans}} \circ \pi_{\text{shift}}$) | $2, 6, 10, 14$ |
-| **Family D** | $3$ | $(7, 3, 5, 1)$ | **Active** | ShiftRows + Row-Reverse ($\pi_{\text{rev}} \circ \pi_{\text{shift}}$) | $3, 7, 11, 15$ |
+| **Family A** | 0 | (1, 2, 3, 5) | Disabled | Cyclic ShiftRows (pi_shift) | 0, 4, 8, 12 |
+| **Family B** | 1 | (3, 5, 1, 7) | **Active** | Matrix Transposition (pi_trans) | 1, 5, 9, 13 |
+| **Family C** | 2 | (5, 1, 7, 3) | Disabled | ShiftRows + Transposition (pi_trans o pi_shift) | 2, 6, 10, 14 |
+| **Family D** | 3 | (7, 3, 5, 1) | **Active** | ShiftRows + Row-Reverse (pi_rev o pi_shift) | 3, 7, 11, 15 |
 
 ### 2.2 Rotational Coprimality and Directional Independence
 The parameter quads $(\alpha, \beta, \gamma, \delta)$ govern bitwise rotations applied to orthogonal toroidal neighbors:
