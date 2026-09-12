@@ -116,7 +116,7 @@ $$
 Every byte coordinate $(r, c) \in \mathbb{T}^2$ has an identical 4-neighbor Von Neumann neighborhood:
 
 $$
-\mathcal{N}(r, c) = \left\{ ((r-1) \bmod 8, c), \; ((r+1) \bmod 8, c), \; (r, (c-1) \bmod 8), \; (r, (c+1) \bmod 8) \right\}
+\mathcal{N}(r, c) = \bigl\{ ((r-1) \bmod 8, c), \; ((r+1) \bmod 8, c), \; (r, (c-1) \bmod 8), \; (r, (c+1) \bmod 8) \bigr\}
 $$
 
 Coupled with the circulant MDS hyper-diffusion matrix $\text{circ}(02, 03, 01, 01)$ over $\mathbb{F}_{2^8}$ (optimal branch number $\mathcal{B}_{\text{MDS}} = 5$), full active dispersion across all 64 coordinates is achieved within two rounds.
