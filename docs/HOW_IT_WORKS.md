@@ -274,62 +274,73 @@ The $N_{\text{bio}}$ S-box is engineered to satisfy all modern cryptographic cri
 Following nonlinear substitution, each of the 8 columns is split into two 4-byte vectors ($r = 0..3$ and $r = 4..7$) and multiplied by the **Circulant Maximum Distance Separable (MDS) Matrix** over the Galois Field $\mathbb{F}_{2^8}$ modulo the Rijndael irreducible polynomial $P(x) = x^8 + x^4 + x^3 + x + 1$ ($\mathtt{0x11B}$):
 
 $$
-\begin{bmatrix}
-z_0 \\ z_1 \\ z_2 \\ z_3
-\end{bmatrix}
-=
-\begin{bmatrix}
-\mathtt{02} & \mathtt{03} & \mathtt{01} & \mathtt{01} \\
-\mathtt{01} & \mathtt{02} & \mathtt{03} & \mathtt{01} \\
-\mathtt{01} & \mathtt{01} & \mathtt{02} & \mathtt{03} \\
-\mathtt{03} & \mathtt{01} & \mathtt{01} & \mathtt{02}
-\end{bmatrix}
-\begin{bmatrix}
-v_0 \\ v_1 \\ v_2 \\ v_3
-\end{bmatrix}
-\pmod{P(x)}
+\mathbf{z} = \mathbf{M}_{\text{MDS}} \times \mathbf{v} \pmod{P(x)}
 $$
+
+$$
+\mathbf{M}_{\text{MDS}} = \text{circ}(\mathtt{02}, \mathtt{03}, \mathtt{01}, \mathtt{01})
+$$
+
+In matrix form:
+```
+| z_0 |   | 02  03  01  01 |   | v_0 |
+| z_1 | = | 01  02  03  01 | * | v_1 |  (mod P(x))
+| z_2 |   | 01  01  02  03 |   | v_2 |
+| z_3 |   | 03  01  01  02 |   | v_3 |
+```
+
+Expanded as individual field equations:
+- $z_0 = (\mathtt{02} \otimes v_0) \oplus (\mathtt{03} \otimes v_1) \oplus v_2 \oplus v_3$
+- $z_1 = v_0 \oplus (\mathtt{02} \otimes v_1) \oplus (\mathtt{03} \otimes v_2) \oplus v_3$
+- $z_2 = v_0 \oplus v_1 \oplus (\mathtt{02} \otimes v_2) \oplus (\mathtt{03} \otimes v_3)$
+- $z_3 = (\mathtt{03} \otimes v_0) \oplus v_1 \oplus v_2 \oplus (\mathtt{02} \otimes v_3)$
 
 #### Proof of Optimal Branch Number $\mathcal{B}_{\text{MDS}} = 5$
 By the Singleton bound, the branch number of any linear mapping over a vector space of dimension $k=4$ cannot exceed $k+1 = 5$. Because all subdeterminants of this circulant matrix are non-zero in $\mathbb{F}_{2^8}$, its branch number achieves the theoretical maximum:
+
 $$
-\mathcal{B}_{\text{MDS}} = \min_{v \neq 0} (\text{wt}(v) + \text{wt}(\mathbf{M}v)) = 5
+\mathcal{B}_{\text{MDS}} = \min_{\mathbf{v} \neq \mathbf{0}} \left( \text{wt}(\mathbf{v}) + \text{wt}(\mathbf{M}\mathbf{v}) \right) = 5
 $$
+
 This guarantees that any single non-zero byte difference entering a 4-byte column must produce at least 4 non-zero byte differences exiting the column.
 
 #### Constant-Time Daemen-Rijmen Fast Computation
 Rather than performing 16 full field multiplications per column, TORIX-512 computes the MDS transformation using the branchless Daemen-Rijmen linear combination:
-$$
-t = v_0 \oplus v_1 \oplus v_2 \oplus v_3
-$$
-$$
-z_0 = v_0 \oplus t \oplus \text{xtime}(v_0 \oplus v_1)
-$$
-$$
-z_1 = v_1 \oplus t \oplus \text{xtime}(v_1 \oplus v_2)
-$$
-$$
-z_2 = v_2 \oplus t \oplus \text{xtime}(v_2 \oplus v_3)
-$$
-$$
-z_3 = v_3 \oplus t \oplus \text{xtime}(v_3 \oplus v_0)
-$$
-Where $\text{xtime}(a) = ((a \ll 1) \oplus (\mathtt{0x1B} \text{ if } (a \ \& \ \mathtt{0x80}) \text{ else } 0)) \bmod 256$. In native C99, this is computed across full 64-bit words simultaneously using SIMD-Within-A-Register (SWAR) branchless bitwise masks (`xtime_u64`).
+
+- Parity sum: $t = v_0 \oplus v_1 \oplus v_2 \oplus v_3$
+- Lane 0: $z_0 = v_0 \oplus t \oplus \text{xtime}(v_0 \oplus v_1)$
+- Lane 1: $z_1 = v_1 \oplus t \oplus \text{xtime}(v_1 \oplus v_2)$
+- Lane 2: $z_2 = v_2 \oplus t \oplus \text{xtime}(v_2 \oplus v_3)$
+- Lane 3: $z_3 = v_3 \oplus t \oplus \text{xtime}(v_3 \oplus v_0)$
+
+Where `xtime(a)` denotes multiplication by polynomial $x$ ($\mathtt{0x02}$) in $\mathbb{F}_{2^8}$ modulo $\mathtt{0x11B}$:
+
+```python
+def xtime(a: int) -> int:
+    """Galois Field GF(2^8) multiplication by 0x02 modulo P(x) = 0x11B."""
+    return (((a << 1) ^ (0x1B if (a & 0x80) else 0x00)) & 0xFF)
+```
+
+In the native C99 engine, this is computed across full 64-bit words simultaneously using SIMD-Within-A-Register (SWAR) branchless bitwise masks (`xtime_u64`).
 
 ---
 
 ### Sub-Layer 4: Macrocycle Permutations in $S_{64}$
 To achieve global diffusion across the entire $8 \times 8$ torus, two spatial transformations are applied:
 
-1. **Involutive Quadrant Swapping (Active in Families B & D):**
+1. **Involutive Quadrant Swapping (Active in Families B & D):**  
    The $8 \times 8$ matrix is partitioned into four $4 \times 4$ quadrants:
-   $$
-   Q_0 = [0..3, 0..3], \quad Q_1 = [0..3, 4..7], \quad Q_2 = [4..7, 0..3], \quad Q_3 = [4..7, 4..7]
-   $$
+   - $Q_0 = S[0..3, 0..3]$ (Top-Left)
+   - $Q_1 = S[0..3, 4..7]$ (Top-Right)
+   - $Q_2 = S[4..7, 0..3]$ (Bottom-Left)
+   - $Q_3 = S[4..7, 4..7]$ (Bottom-Right)
+
    The quadrants are swapped diagonally:
+
    $$
    Q_0 \longleftrightarrow Q_3, \qquad Q_1 \longleftrightarrow Q_2
    $$
+
    This moves data across half the diameter of the torus in a single step ($4$ positions horizontally and vertically), destroying local clustering.
 
 2. **Global Coordinate Permutation:**
