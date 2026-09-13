@@ -183,10 +183,10 @@ $$
 * **Full Rank of Toroidal Coupling:** The 4-neighbor linear context coupling operator $\mathbf{L} \in \mathcal{M}_{512 \times 512}(\mathbb{F}_2)$ has full rank (512) with trivial kernel $\ker(\mathbf{L}) = \{\mathbf{0}\}$. Non-zero state differences cannot cancel to zero in the context phase.
 * **Active S-Box Lower Bound:** Every non-zero difference pattern activates at least $n_{\text{act}}(R_4) \ge 136$ S-boxes over 4 rounds, guaranteeing $n_{\text{act}}(R_{16}) \ge 544$ active S-boxes across 16 rounds.
 
-With the 8-round balanced Mini-Feistel $N_{\text{bio}}$ exhibiting maximum differential uniformity $\delta_{\max} = 12$, the single S-box differential transition probability is bounded by $p_{\max} = \frac{12}{256} = 2^{-4.415}$. The cumulative 16-round differential characteristic probability is:
+With the 8-round balanced Mini-Feistel $N_{\text{bio}}$ exhibiting maximum differential uniformity $\delta_{\max} = 8$, the single S-box differential transition probability is bounded by $p_{\max} = \frac{8}{256} = 2^{-5.000}$. The cumulative 16-round differential characteristic probability is:
 
 $$
-P_{\text{diff}}(\Omega_{16}) \le (p_{\max})^{544} \le (2^{-4.415})^{544} \approx 2^{-2401.7} \ll 2^{-512}
+P_{\text{diff}}(\Omega_{16}) \le (p_{\max})^{544} \le (2^{-5.000})^{544} = 2^{-2720.0} \ll 2^{-512}
 $$
 
 Differential cryptanalysis against Project H-512 is mathematically impossible.
@@ -194,22 +194,22 @@ Differential cryptanalysis against Project H-512 is mathematically impossible.
 ---
 
 ### 3.2 Linear Cryptanalysis Bound (Matsui Piling-Up Lemma)
-The component nonlinearity of $N_{\text{bio}}$ is $\mathcal{NL} = 96$, yielding a maximum linear correlation bias of:
+The component nonlinearity of $N_{\text{bio}}$ is $\mathcal{NL} = 100$, yielding a maximum linear correlation bias of:
 
 $$
-\epsilon_{\max} = \frac{256/2 - 96}{256} = \frac{32}{256} = 2^{-3.000}
+\epsilon_{\max} = \frac{256/2 - 100}{256} = \frac{28}{256} = \frac{7}{64} \approx 2^{-3.193}
 $$
 
-By Matsui's Piling-Up Lemma, for any 16-round linear trail across 544 active S-boxes:
+By Matsui's Piling-Up Lemma, for any 16-round linear trail across 544 active S-boxes, the maximum trail correlation is:
 
 $$
-|C_{\text{trail}}| \le (2 \cdot \epsilon_{\max})^{544} = (2 \cdot 2^{-3})^{544} = (2^{-2})^{544} = \mathbf{2^{-1088} \ll 2^{-256}}
+|C_{\text{trail}}| \le (2 \cdot \epsilon_{\max})^{544} = \left(2 \cdot \frac{28}{256}\right)^{544} = \left(\frac{7}{32}\right)^{544} \approx (2^{-2.193})^{544} \approx \mathbf{2^{-1193.0} \ll 2^{-256}}
 $$
 
 The data complexity required to observe this correlation is:
 
 $$
-\mathcal{O}(|C|^{-2}) \ge 2^{2176} \text{ known plaintexts}
+\mathcal{O}(|C|^{-2}) \ge 2^{2386} \text{ known plaintexts}
 $$
 
 which exceeds the total information content of the message space by orders of magnitude.
@@ -243,27 +243,27 @@ All digests are reported in canonical hexadecimal string representation.
 ### Test Vector 1: Empty String (`""`)
 - **Input:** `b""` ($\ell = 0$ bits, 0 bytes)
 - **H-512 Digest (64 bytes):**
-  `f80e69abab66bbac4dcb5ede3c682336ce2f5c1ef5f90c0006c961a46a04a1d4a9dc85ae2701eb5f52607d7b7c9d0c5f8d44be168f26da05d44b1f07940d8b47`
+  `c43cc267c5e98b5c8c9b543814e1b3c5cee767cf1f214d89cf1d47090abf7a73ec2de95bf83a1907ba0b9fdea014db70f0092ef6b81a71d14f45fc7a14391f92`
 - **H-256 Digest (32 bytes):**
-  `52e0cb89b1d1521268d0e0d312cc9a2ebe9232c1b047a3a3ef5ade86ed677160`
+  `952477cc655ecd7b563bf1ed9fa786af50287148ccbcbad7a3531b995702f33b`
 
 ---
 
 ### Test Vector 2: Three ASCII Characters (`"abc"`)
 - **Input:** `b"abc"` ($\ell = 24$ bits, 3 bytes)
 - **H-512 Digest (64 bytes):**
-  `6368915a98f07f22061a6b3d45e677b72350811e55aa1a542b474e21a2a912bbdc6ff9b865615707ea9fcd5c3b53f3e1b764b8ad28f1e28607a0f7ed0e7e`
+  `97baaec0f04a1cf09d88848a4bf32651d339892f5660096e5dd60defde26d0f1a94ab08d34ac5605843762fdb249c10ef2acf02c0a59526c94d9a718fc8be079`
 - **H-256 Digest (32 bytes):**
-  `eb7eadfcaae60d2052fe74fc3d2f03bc1cd8a53857b027d36e3c7a1dee5c71e3`
+  `340fd4b0c928c1e52e4076e4ef4dad0721597a4180d80004cb84f4326d640153`
 
 ---
 
 ### Test Vector 3: Standard Pangram (`"The quick brown fox jumps over the lazy dog"`)
 - **Input:** `b"The quick brown fox jumps over the lazy dog"` ($\ell = 344$ bits, 43 bytes)
 - **H-512 Digest (64 bytes):**
-  `9c3333a7fb3c6c697ccfd18e329d0a2cba50ef6ffc744f48ff70a04944d15fc3bc799981881ec31db4a35da76c8c49f929faaa0421aa6e59fbf45c90a5f7`
+  `4e8bc01eb66fabf9ce030c41eb23a7d5d702440035ae75206fc6a050d6e77214a91599cf9dda02e01b8f66572548a2f509227b49c3c024a2e36ea175952d7709`
 - **H-256 Digest (32 bytes):**
-  `74a71357712c92bc1f207e0bf928c8af992570cf3bdc08bf58f846b171df11f2`
+  `9a59fb00b6e773904cf29a74220c99a68f70d1e554bf7b3ea8846d5edbd951eb`
 
 ---
 
@@ -274,7 +274,7 @@ The mathematical objects specified in Sections 1 through 4:
 - HAIFA cumulative bit-counter ingestion $t_m$ along the main diagonal
 - Canonical H-512 row-major serialization
 - Canonical H-256 nonlinear truncated cross-fold via $N_{\text{bio}}$
-- Provable security bounds ($n_{\text{act}} \ge 544$, $P_{\text{diff}} \le 2^{-2401.7}$, $|C| \le 2^{-1088}$)
+- Provable security bounds ($n_{\text{act}} \ge 544$, $P_{\text{diff}} \le 2^{-2720.0}$, $|C| \le 2^{-1193.0}$)
 - Official deterministic reference test vectors
 
 are hereby **FROZEN** as the canonical compression and finalization specification for Project H-512.

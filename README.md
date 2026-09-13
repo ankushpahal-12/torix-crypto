@@ -21,9 +21,9 @@
 </p>
 
 * **Toroidal Matrix Geometry:** $8 \times 8$ byte state with 4-neighbor Von Neumann cross-coupling and cyclic wrapping. No borders or corners for differential trails to exploit.
-* **Nonlinear Core ($N_{\text{bio}}$):** Bijective 8-round balanced Mini-Feistel cell substitution achieving $\Delta_{\max} = 12$, minimum component nonlinearity $\text{NL} = 96$, and maximal algebraic degree $\deg = 7$.
+* **Nonlinear Core ($N_{\text{bio}}$):** Bijective 8-round balanced Mini-Feistel cell substitution with boundary affine whitening $K = \mathtt{0x01}$, achieving optimal differential uniformity $\delta_{\max} = 8$, minimum component nonlinearity $\mathcal{NL} = 100$, maximal algebraic degree $\deg = 7$, and zero fixed/opposite fixed points ($\text{FP} = 0, \text{OFP} = 0$).
 * **MDS Hyper-Diffusion:** Involutive circulant matrix $\text{circ}(02, 03, 01, 01)$ over Galois Field $\mathbb{F}_{2^8}$ with optimal branch number $\mathcal{B}_{\text{MDS}} = 5$.
-* **Provable Security Bounds:** Computational wide-trail bound guarantees $n_{\text{act}} \ge 544$ active S-boxes across 16 rounds, proving differential trail probability $P_{\text{diff}} \le 2^{-2401.7}$ (far below $2^{-512}$) and linear hull correlation $|C_{\text{trail}}| \le 2^{-1088}$ (far below $2^{-256}$).
+* **Provable Security Bounds:** Computational wide-trail bound guarantees $n_{\text{act}} \ge 544$ active S-boxes across 16 rounds, proving differential trail probability $P_{\text{diff}} \le 2^{-2720.0}$ (far below $2^{-512}$) and linear hull correlation $|C_{\text{trail}}| \le 2^{-1193.0}$ (far below $2^{-256}$).
 * **Single-Pass AEAD:** Single-pass encryption and authentication providing IND-CCA2 confidentiality and INT-CTXT tamper-proofing.
 * **Post-Quantum Sponge Mode:** Multi-rate Duplex Sponge providing up to **192-bit quantum security against Grover's algorithm**.
 * **Zero-Allocation Native C99 Engine:** 64-bit branchless SWAR SIMD vectorization delivering **16.37 MB/s** throughput.
@@ -194,7 +194,7 @@ The table below contrasts **TORIX-512** against prevailing industry and NIST sta
 | Property | Our Hash (TORIX-512) | SHA-256 | SHA-3 (Keccak-512) | BLAKE3 |
 | :--- | :--- | :--- | :--- | :--- |
 | **Digest Size** | 512 bits (native) / 256 bits (cross-folded) / Arbitrary XOF | 256 bits (fixed) | Variable (224, 256, 384, 512 bits / SHAKE XOF) | 256 bits (default) / Arbitrary XOF |
-| **Security Foundation** | Toroidal Cellular Permutation ($P_{\text{diff}} \le 2^{-2401.7}$) | Merkle-Damgard ARX (Vulnerable to Length-Extension) | Duplex Sponge Construction (NIST FIPS 202) | Bao Tree Permutation Network |
+| **Security Foundation** | Toroidal Cellular Permutation ($P_{\text{diff}} \le 2^{-2720.0}$) | Merkle-Damgard ARX (Vulnerable to Length-Extension) | Duplex Sponge Construction (NIST FIPS 202) | Bao Tree Permutation Network |
 | **Classical Preimage** | $2^{512}$ (H-512) / $2^{256}$ (H-256) | $2^{256}$ | $2^{512}$ | $2^{256}$ |
 | **Classical Collision** | $2^{256}$ (H-512) / $2^{128}$ (H-256) | $2^{128}$ | $2^{256}$ | $2^{128}$ |
 | **Quantum Grover Margin** | $2^{256}$ (H-512) / 192-bit Quantum Duplex Sponge | $2^{128}$ (No Post-Quantum Margin) | $2^{256}$ (Capacity $c=512$) | $2^{128}$ (No Post-Quantum Margin) |
@@ -225,7 +225,7 @@ python tests/run_all_phases.py
 | Number | Test Suite | Focus Area | Status |
 | :--- | :--- | :--- | :---: |
 | 1 | `verify_phase3.py` | $8 \times 8$ Toroidal topology, NUMS derivation, dual-buffering | PASS |
-| 2 | `verify_phase4.py` | $N_{\text{bio}}$ Bijectivity, $\Delta_{\max} = 12$, Nonlinearity $\text{NL} = 96$, Degree $\deg = 7$ | PASS |
+| 2 | `verify_phase4.py` | $N_{\text{bio}}$ Bijectivity, $\delta_{\max} = 8$, Nonlinearity $\mathcal{NL} = 100$, Degree $\deg = 7$, $\text{FP}=0, \text{OFP}=0$ | PASS |
 | 3 | `verify_phase5.py` | 4-Neighbor Von Neumann coupling, antipodal jump, Branch $\mathcal{B} = 6$ | PASS |
 | 4 | `verify_phase6.py` | ShiftRows, Matrix Transpose, Involutive Quadrant Swaps | PASS |
 | 5 | `verify_phase7.py` | Macrocycles A/B/C/D, 16-round avalanche, zero fixpoints | PASS |
@@ -234,7 +234,7 @@ python tests/run_all_phases.py
 | 8 | `audit_bottlenecks_and_loopholes.py` | 5-Vector cryptanalytic loophole stress audit | PASS |
 | 9 | `verify_phase9.py` | Native C99 bit-exact parity, $\mathcal{O}(1)$ file streaming, RFC 2104 HMAC | PASS |
 | 10 | `verify_phase10.py` | NIST SP 800-22 empirical randomness certification | PASS |
-| 11 | `verify_phase11.py` | Wide-Trail bound ($P_{\text{diff}} \le 2^{-2401.7}$), Matsui linear hull bound | PASS |
+| 11 | `verify_phase11.py` | Wide-Trail bound ($P_{\text{diff}} \le 2^{-2720.0}$), Matsui linear hull bound ($|C_{\text{trail}}| \le 2^{-1193.0}$) | PASS |
 | 12 | `verify_phase12.py` | Branchless SWAR `xtime_u64`, $16.37\text{ MB/s}$ C engine | PASS |
 | 13 | `verify_phase13.py` | Parallel Tree Hashing, Merkle proofs, RFC 5869 HKDF | PASS |
 | 14 | `verify_phase14.py` | Welch's t-test timing invariance, volatile memory cleanse | PASS |

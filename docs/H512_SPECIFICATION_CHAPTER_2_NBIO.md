@@ -11,12 +11,12 @@
 ### Scope and Mathematical Objectives
 This chapter defines the nonlinear substitution operator $N_{\text{bio}}: \mathbb{F}_{2^8} \to \mathbb{F}_{2^8}$ of **Project H-512**. 
 
-The function $N_{\text{bio}}$ provides the cryptographic **confusion** for the entire cipher. To withstand all known forms of cryptanalysis, $N_{\text{bio}}$ must satisfy five non-negotiable mathematical criteria:
+The function $N_{\text{bio}}$ provides the cryptographic **confusion** for the entire cipher. To withstand all known forms of cryptanalysis, $N_{\text{bio}}$ satisfies five non-negotiable mathematical criteria:
 1. **Strict Bijectivity:** $N_{\text{bio}} \in \mathcal{S}_{256}$ is a permutation of $\{0, 1, \dots, 255\}$, ensuring zero entropy loss under iteration.
-2. **Low Differential Uniformity:** $\delta_{\max} \le 10$, bounding the maximum differential transition probability to $p_{\max} \le 2^{-4.678}$.
-3. **High Nonlinearity:** $\mathcal{NL}(N_{\text{bio}}) \ge 96$, bounding the maximum linear correlation bias to $\epsilon_{\max} \le 2^{-3.000}$.
+2. **Low Differential Uniformity:** $\delta_{\max} = 8$, bounding the maximum differential transition probability to $p_{\max} = 8/256 = 2^{-5.000}$.
+3. **High Nonlinearity:** $\mathcal{NL}(N_{\text{bio}}) = 100$, bounding the maximum linear correlation bias to $\epsilon_{\max} = 28/512 \approx 2^{-3.170}$.
 4. **Maximal Algebraic Degree:** $\deg(y_k) = 7$ for all 8 coordinate Boolean functions, preventing algebraic interpolation and higher-order differential attacks.
-5. **Zero Degeneracy:** Zero fixed points ($N_{\text{bio}}(x) \ne x$) and zero opposite fixed points ($N_{\text{bio}}(x) \ne x \oplus \mathtt{0xFF}$).
+5. **Zero Degeneracy:** Exactly zero fixed points ($N_{\text{bio}}(x) \ne x$) and zero opposite fixed points ($N_{\text{bio}}(x) \ne x \oplus \mathtt{0xFF}$) for all $x \in \mathbb{F}_{2^8}$, formally guaranteed via boundary affine whitening $K = \mathtt{0x01}$.
 
 ---
 
@@ -61,11 +61,13 @@ R_{j+1} &= L_j \oplus F_j(R_j)
 \end{aligned}
 $$
 
-The final 8-bit substitution output is assembled via:
+The final 8-bit substitution output is assembled by combining the nibbles and applying the boundary affine whitening shift $K = \mathtt{0x01}$:
 
 $$
-N_{\text{bio}}(x) = (L_8 \ll 4) \vee R_8
+N_{\text{bio}}(x) = ((L_8 \ll 4) \vee R_8) \oplus K
 $$
+
+where $K = \mathtt{0x01}$ ($K_L = \mathtt{0x00}, K_R = \mathtt{0x01}$) is the kernel difference whitening constant guaranteeing zero fixed points and zero opposite fixed points without altering differential or linear bounds.
 
 ---
 
@@ -124,22 +126,22 @@ The complete, deterministic mapping $y = N_{\text{bio}}(x)$ is given in hexadeci
 
 ```
        0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
-0x0_  36   4E   F4   5E   A2   16   09   44   14   4F   13   C1   0B   26   85   60
-0x1_  87   21   5C   4A   0F   C7   E8   D4   00   6D   3F   97   18   46   ED   C8
-0x2_  E3   D0   F9   12   F8   5B   A8   8E   E9   50   53   34   B1   C5   9D   AC
-0x3_  84   6C   43   79   82   98   47   F3   FA   DF   9C   CC   56   49   3B   E0
-0x4_  F7   DE   78   A5   D8   DD   76   A1   54   90   B0   20   5D   30   91   F5
-0x5_  AF   F0   DB   06   75   71   7E   6A   BC   2C   1D   AB   99   68   83   64
-0x6_  40   31   10   39   DC   0D   69   BA   EE   6B   E6   02   4C   4D   A3   D3
-0x7_  FE   48   42   6E   1E   15   32   29   55   B7   C2   2D   94   9A   D1   BF
-0x8_  6F   67   35   EC   70   41   AD   C9   74   B3   EF   24   8C   CD   88   73
-0x9_  38   25   81   05   57   F2   B8   86   23   CB   E7   FD   1C   B2   FF   07
-0xA_  BE   3A   2B   1B   D6   59   CF   58   04   61   0A   5A   62   E1   17   C4
-0xB_  AE   7A   0E   8D   F6   01   96   9F   EA   A0   45   7F   3C   7C   D9   11
-0xC_  B4   52   A9   9E   72   A7   C6   03   8B   80   D2   1F   89   D7   FC   08
-0xD_  95   C3   27   77   B9   8A   66   CE   7B   DA   9B   C0   22   19   2E   8F
-0xE_  A4   28   E4   3D   0C   BB   2A   4B   5F   AA   33   92   1A   B6   BD   B5
-0xF_  FB   CA   A6   2F   E5   63   93   F1   3E   37   65   D5   7D   51   EB   E2
+0x0_  57   E9   FE   D7   66   F6   67   EB   A6   7A   54   D5   8B   07   46   41
+0x1_  82   8C   16   9A   8A   1B   3A   D8   C1   4E   52   D2   C6   A5   9B   08
+0x2_  03   8D   30   18   49   EF   95   58   F7   BC   B8   23   71   59   02   10
+0x3_  24   7D   05   4D   6E   26   AC   84   CC   F0   9F   39   BD   1C   96   63
+0x4_  47   B0   97   61   14   C0   7E   3E   3D   86   04   56   2A   EA   22   D4
+0x5_  C3   69   3F   E1   EC   43   B6   DA   AB   91   0D   BF   8E   E3   78   75
+0x6_  A1   87   2F   4C   6A   1D   F3   28   E4   70   FD   D6   CE   D3   A9   E2
+0x7_  E8   A2   79   60   77   F8   09   6D   C4   5A   E7   B3   A3   F5   62   32
+0x8_  94   DE   B9   35   40   90   0B   45   E5   0F   15   FF   DF   E6   B1   5B
+0x9_  27   42   4A   20   50   2C   F9   D0   3C   89   E0   BE   B2   AE   F2   76
+0xA_  9D   DC   6F   80   0E   81   7B   AD   C7   36   6B   B5   38   85   21   5F
+0xB_  73   65   0C   CB   EE   55   99   D9   00   2E   29   34   6C   01   83   12
+0xC_  C8   A7   33   53   C9   BA   CD   25   D1   17   F4   FA   06   31   B7   11
+0xD_  7C   13   5C   3B   51   2B   9E   B4   0A   72   FC   37   68   4F   1A   A8
+0xE_  A4   AA   98   CF   48   5D   2D   9C   93   AF   FB   5E   BB   F1   C5   88
+0xF_  DB   92   7F   8F   19   CA   1E   1F   DD   64   44   4B   ED   A0   C2   74
 ```
 
 *(Each entry $y = \text{Table}[x]$ maps input byte $x$ to output byte $y$ in $\mathcal{O}(1)$).*
@@ -164,18 +166,19 @@ $$
 **Empirical Result:**
 
 $$
-\delta_{\max} = 10
+\delta_{\max} = 8
 $$
 
 The maximum differential characteristic probability across a single S-box is:
 
 $$
-p_{\max} = \frac{\delta_{\max}}{256} = \frac{10}{256} \approx 2^{-4.678}
+p_{\max} = \frac{\delta_{\max}}{256} = \frac{8}{256} = 2^{-5.000}
 $$
 
 *Comparison with standard primitives:*
 - DES S-Boxes: $\delta_{\max} = 16$ ($p_{\max} = 2^{-4.000}$)
-- $N_{\text{bio}}$ S-Box: $\delta_{\max} = 10$ ($p_{\max} = 2^{-4.678}$)
+- Original $N_{\text{bio}}$: $\delta_{\max} = 10$ ($p_{\max} = 2^{-4.678}$)
+- Tri-Method $N_{\text{bio}}$: $\delta_{\max} = \mathbf{8}$ ($p_{\max} = \mathbf{2^{-5.000}}$)
 - AES S-Box: $\delta_{\max} = 4$ ($p_{\max} = 2^{-6.000}$)
 
 ### 5.2 Nonlinearity & Linear Approximation Table ($\mathcal{NL}$)
@@ -200,26 +203,24 @@ $$
 **Coordinate Nonlinearities (Individual Output Bits $y_0$ to $y_7$):**
 - $\text{Bit } 0 \ (\beta = \mathtt{0x01}): \max |\mathcal{W}| = 48 \implies \mathcal{NL} = 128 - 24 = 104$
 - $\text{Bit } 1 \ (\beta = \mathtt{0x02}): \max |\mathcal{W}| = 52 \implies \mathcal{NL} = 128 - 26 = 102$
-- $\text{Bit } 2 \ (\beta = \mathtt{0x04}): \max |\mathcal{W}| = 48 \implies \mathcal{NL} = 128 - 24 = 104$
-- $\text{Bit } 3 \ (\beta = \mathtt{0x08}): \max |\mathcal{W}| = 60 \implies \mathcal{NL} = 128 - 30 = 98$
+- $\text{Bit } 2 \ (\beta = \mathtt{0x04}): \max |\mathcal{W}| = 56 \implies \mathcal{NL} = 128 - 28 = 100$
+- $\text{Bit } 3 \ (\beta = \mathtt{0x08}): \max |\mathcal{W}| = 44 \implies \mathcal{NL} = 128 - 22 = 106$
 - $\text{Bit } 4 \ (\beta = \mathtt{0x10}): \max |\mathcal{W}| = 48 \implies \mathcal{NL} = 128 - 24 = 104$
 - $\text{Bit } 5 \ (\beta = \mathtt{0x20}): \max |\mathcal{W}| = 52 \implies \mathcal{NL} = 128 - 26 = 102$
-- $\text{Bit } 6 \ (\beta = \mathtt{0x40}): \max |\mathcal{W}| = 44 \implies \mathcal{NL} = 128 - 22 = 106$
-- $\text{Bit } 7 \ (\beta = \mathtt{0x80}): \max |\mathcal{W}| = 40 \implies \mathcal{NL} = 128 - 20 = 108$
-
-*(Note on notation: Evaluating $128 - \max |\mathcal{W}|$ without dividing by 2 yields $[80, 76, 80, 68, 80, 76, 84, 88]$. Under the formal cryptographic definition $\mathcal{NL} = 128 - \frac{1}{2}\max|\mathcal{W}|$, the coordinate nonlinearities are $[104, 102, 104, 98, 104, 102, 106, 108]$).*
+- $\text{Bit } 6 \ (\beta = \mathtt{0x40}): \max |\mathcal{W}| = 56 \implies \mathcal{NL} = 128 - 28 = 100$
+- $\text{Bit } 7 \ (\beta = \mathtt{0x80}): \max |\mathcal{W}| = 52 \implies \mathcal{NL} = 128 - 26 = 102$
 
 **Overall Vectorial Minimum Nonlinearity:**
-Across all 255 non-zero linear combinations $\beta \in \{1, \dots, 255\}$, the maximum Walsh spectral value is $\max_{\alpha, \beta} |\mathcal{W}_\beta(\alpha)| = 64$ (which occurs at $\beta = \mathtt{0x35}$):
+Across all 255 non-zero linear combinations $\beta \in \{1, \dots, 255\}$, the maximum Walsh spectral value is $\max_{\alpha, \beta} |\mathcal{W}_\beta(\alpha)| = 56$:
 
 $$
-\mathcal{NL}(N_{\text{bio}}) = 128 - \frac{64}{2} = \mathbf{96}
+\mathcal{NL}(N_{\text{bio}}) = 128 - \frac{56}{2} = \mathbf{100}
 $$
 
 The maximum linear correlation bias across any linear approximation is:
 
 $$
-\epsilon_{\max} = \frac{\max |\mathcal{W}|}{2 \cdot 256} = \frac{32}{256} = 2^{-3.000}
+\epsilon_{\max} = \frac{\max |\mathcal{W}|}{2 \cdot 256} = \frac{28}{512} \approx 2^{-3.170}
 $$
 
 ### 5.3 Algebraic Degree & Algebraic Normal Form (ANF)
@@ -249,18 +250,22 @@ $$
 Since $\deg(y_k) = 7$ for all $k \in \{0, \dots, 7\}$, $N_{\text{bio}}$ achieves the **maximum possible algebraic degree** for any 8-bit bijection (degree 8 is impossible for a permutation due to the Picard-Vandermonde parity property). This completely thwarts algebraic interpolation attacks and guarantees exponential degree growth across cipher rounds.
 
 ### 5.4 Fixed Point and Cycle Decomposition Analysis
-* **Isolated Fixed Points:** $\{x : N_{\text{bio}}(x) = x\} = \{140, 198\} \ (\mathtt{0x8C}, \mathtt{0xC6})$. In the round transformation, round constants are injected immediately after substitution: $\mathcal{S}_{\text{sub}}[r, c] = N_{\text{bio}}(\mathcal{C}[r, c]) \oplus \mathcal{RC}_i[r, c]$. Since $\mathcal{RC}_i[r, c] \ne 0$, these isolated fixed points are broken in every round and cannot form persistent iterative fixed points.
-* **Opposite Fixed Points:** $\{x : N_{\text{bio}}(x) = x \oplus \mathtt{0xFF}\} = \emptyset$ (Count = 0).
-* **Cycle Decomposition in $\mathcal{S}_{256}$:** $N_{\text{bio}}$ decomposes into 8 disjoint permutation cycles with lengths $[109, 74, 42, 14, 8, 7, 1, 1]$. The dominant cycle of length 109 ensures high orbit complexity and rapid state mixing under repeated iteration.
-- **Strict Avalanche Criterion (SAC):**
-  Average single-bit output flip probability: $\mu = 0.5005$ (ideal: $0.5000$).
+* **Fixed Points:** $\{x : N_{\text{bio}}(x) = x\} = \emptyset$ (**Exactly 0 Fixed Points**). Guaranteed because the whitening constant $K = \mathtt{0x01} \notin \text{Im}(D)$ where $D(x) = \Phi_{\text{Feistel}}^{(8)}(x) \oplus x$.
+* **Opposite Fixed Points:** $\{x : N_{\text{bio}}(x) = x \oplus \mathtt{0xFF}\} = \emptyset$ (**Exactly 0 Opposite Fixed Points**). Guaranteed because $(K \oplus \mathtt{0xFF}) \notin \text{Im}(D)$.
+* **Cycle Decomposition in $\mathcal{S}_{256}$:** $N_{\text{bio}}$ decomposes into 3 disjoint permutation cycles with lengths $[171, 73, 12]$. The dominant cycle of length 171 ensures high orbit complexity and rapid state mixing under repeated iteration. The minimum cycle length of 12 prevents any short-orbit or period-2 degenerate iterative states.
+* **Strict Avalanche Criterion (SAC):**
+  Average single-bit output flip probability: $\mu = 0.5017$ (ideal: $0.5000$).
 
 ---
 
 ## 6. The Inverse S-Box $N_{\text{bio}}^{-1}$
 
-To verify bidirectionality and formal mathematical invertibility, the inverse mapping $N_{\text{bio}}^{-1}: \mathbb{F}_{2^8} \to \mathbb{F}_{2^8}$ unrolls the Feistel network in reverse order ($j = 7, 6, \dots, 0$):
+To compute the exact inverse $N_{\text{bio}}^{-1}(y)$, the whitening constant is reversed first, and the Mini-Feistel network is unrolled in reverse order:
+$$
+(L_8, R_8) = (y \oplus K) \gg 4, \ (y \oplus K) \wedge \mathtt{0x0F}
+$$
 
+For $j = 7, 6, \dots, 0$:
 $$
 \begin{aligned}
 R_j &= L_{j+1} \\
@@ -268,16 +273,44 @@ L_j &= R_{j+1} \oplus F_j(L_{j+1})
 \end{aligned}
 $$
 
+$$
+x = (L_0 \ll 4) \vee R_0
+$$
+
+The complete 256-element precomputed inverse table is:
+
+```
+       0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
+0x0_  B8   BD   2E   20   4A   32   CC   0D   1F   76   D8   86   B2   5A   A4   89
+0x1_  2F   CF   BF   D1   44   8A   12   C9   23   F4   DE   15   3D   65   F6   F7
+0x2_  93   AE   4E   2B   30   C7   35   90   67   BA   4C   D5   95   E6   B9   62
+0x3_  22   CD   7F   C2   BB   83   A9   DB   AC   3B   16   D3   98   48   47   52
+0x4_  84   0F   91   55   FA   87   0E   40   E4   24   92   FB   63   33   19   DD
+0x5_  94   D4   1A   C3   0A   B5   4B   00   27   2D   79   8F   D2   E5   EB   AF
+0x6_  73   43   7E   3F   F9   B1   04   06   DC   51   64   AA   BC   77   34   A2
+0x7_  69   2C   D9   B0   FF   5F   9F   74   5E   72   09   A6   D0   31   46   F2
+0x8_  A3   A5   10   BE   37   AD   49   61   EF   99   14   0C   11   21   5C   F3
+0x9_  85   59   F1   E8   80   26   3E   42   E2   B6   13   1E   E7   A0   D6   3A
+0xA_  FD   60   71   7C   E0   1D   08   C1   DF   6E   E1   58   36   A7   9D   E9
+0xB_  41   8E   9C   7B   D7   AB   56   CE   2A   82   C5   EC   29   3C   9B   5B
+0xC_  45   18   FE   50   78   EE   1C   A8   C0   C4   F5   B3   38   C6   6C   E3
+0xD_  97   C8   1B   6D   4F   0B   6B   03   17   B7   57   F0   A1   F8   81   8C
+0xE_  9A   53   6F   5D   68   88   8D   7A   70   01   4D   07   54   FC   B4   25
+0xF_  39   ED   9E   66   CA   7D   05   28   75   96   CB   EA   DA   6A   02   8B
+```
+
 The identity $N_{\text{bio}}^{-1}(N_{\text{bio}}(x)) = x$ holds with **100% precision for all 256 elements**.
 
 ---
 
 ## 7. Cryptographic Verdict
 
-The $N_{\text{bio}}$ Balanced Mini-Feistel construction satisfies all formal requirements:
-- $\delta_{\max} = 10 \implies$ High differential resistance.
-- $\mathcal{NL} = 96 \implies$ High linear resistance.
-- $\deg = 7 \implies$ Maximal algebraic complexity.
-- $|\text{Im}(N_{\text{bio}})| = 256 \implies$ Zero information entropy leakage.
+The $N_{\text{bio}}$ Tri-Method construction satisfies all formal requirements:
+- $\delta_{\max} = \mathbf{8} \implies$ Exceptional differential resistance ($p_{\max} = 2^{-5.000}$).
+- $\mathcal{NL} = \mathbf{100} \implies$ Exceptional linear resistance ($\epsilon_{\max} = 2^{-3.170}$).
+- $\text{FP} = \mathbf{0}, \ \text{OFP} = \mathbf{0} \implies$ Complete zero degeneracy.
+- $\deg = \mathbf{7} \implies$ Maximal algebraic complexity on all 8 bits.
+- $|\text{Im}(N_{\text{bio}})| = \mathbf{256} \implies$ Zero information entropy leakage.
 
 $N_{\text{bio}}$ is hereby **FROZEN** as the official nonlinear core of Project H-512.
+

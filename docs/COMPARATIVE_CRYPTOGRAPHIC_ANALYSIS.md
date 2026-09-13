@@ -18,7 +18,7 @@ The evaluation is structured across five core cryptographic domains:
 | Property | Our Hash (TORIX-512) | SHA-256 | SHA-3 (Keccak-512) | BLAKE3 |
 | :--- | :--- | :--- | :--- | :--- |
 | **Digest Size** | 512 bits (native) / 256 bits (cross-folded) / Arbitrary XOF | 256 bits (fixed) | Variable (224, 256, 384, 512 bits / SHAKE XOF) | 256 bits (default) / Arbitrary XOF |
-| **Security Foundation** | Toroidal Cellular Permutation on $\mathbb{T}^2$ ($P_{\text{diff}} \le 2^{-2401.7}$) | Merkle-Damgard ARX (Addition, Rotation, XOR) | Duplex Sponge Construction ($5 \times 5$ Matrice) | Bao Tree Permutation Network |
+| **Security Foundation** | Toroidal Cellular Permutation on $\mathbb{T}^2$ ($P_{\text{diff}} \le 2^{-2720.0}$) | Merkle-Damgard ARX (Addition, Rotation, XOR) | Duplex Sponge Construction ($5 \times 5$ Matrice) | Bao Tree Permutation Network |
 | **Classical Preimage** | $2^{512}$ (H-512) / $2^{256}$ (H-256) | $2^{256}$ | $2^{512}$ | $2^{256}$ |
 | **Classical Collision** | $2^{256}$ (H-512) / $2^{128}$ (H-256) | $2^{128}$ | $2^{256}$ | $2^{128}$ |
 | **Quantum Grover Margin** | $2^{256}$ (H-512) / 192-bit Quantum Duplex Sponge | $2^{128}$ (No Post-Quantum Margin) | $2^{256}$ (Capacity $c = 512$) | $2^{128}$ (No Post-Quantum Margin) |
@@ -58,7 +58,7 @@ Figure 1 maps the holistic architectural profile of each primitive across six no
 
 * **Spoke 4: Active S-Boxes Bound (Provable Wide-Trail Security)**
   * **What it shows:** The mathematical certainty that differential and linear cryptanalytic trails are provably impossible due to a guaranteed minimum count of active nonlinear components ($n_{\text{act}}$).
-  * **TORIX-512 (Score: $10.0$):** Guaranteed by the Wide-Trail design strategy to activate at least $n_{\text{act}} \ge 544$ S-boxes across 16 rounds, proving differential trail probability $P_{\text{diff}} \le 2^{-2401.7}$ and linear hull correlation $|C_{\text{trail}}| \le 2^{-1088}$.
+  * **TORIX-512 (Score: $10.0$):** Guaranteed by the Wide-Trail design strategy to activate at least $n_{\text{act}} \ge 544$ S-boxes across 16 rounds, proving differential trail probability $P_{\text{diff}} \le 2^{-2720.0}$ and linear hull correlation $|C_{\text{trail}}| \le 2^{-1193.0}$.
   * **SHA-3 / Keccak-512 (Score: $8.0$):** Wide-trail properties on the 5-bit $\chi$ mapping guarantee a minimum of 24 active nonlinear slices over multiple rounds.
   * **BLAKE3 & SHA-256 (Scores: $7.0$ & $6.0$):** Rely on heuristic differential bounds derived from ARX addition-carry difference propagation rather than provable branch-number theorems.
 
@@ -95,12 +95,12 @@ $$
 | Metric | TORIX-512 | SHA-256 | SHA-3 / Keccak-512 | BLAKE3 |
 | :--- | :--- | :--- | :--- | :--- |
 | **Underlying Primitive** | Wide-Trail SPN on $\mathbb{T}^2$ | ARX Chaining Step | Permutation ($f[1600]$) | ARX Permutation |
-| **S-Box / Nonlinear Core** | 8-Round Balanced Mini-Feistel ($N_{\text{bio}}$) | Boolean Majority ($\text{Maj}$) and Choice ($\text{Ch}$) | 5-bit Nonlinear Mapping ($\chi$) | Modular Addition ($x + y \pmod{2^{32}}$) |
-| **Max Differential Uniformity** | $\Delta_{\max} = 12$ | Not S-Box Bound (Carry Chains) | $\Delta_{\max} = 8$ (per 5-bit slice) | Differential carry propagation |
-| **Minimum Nonlinearity** | $\text{NL} = 96$ | Algebraic Degree 2 | $\text{NL} = 8$ (per 5-bit slice) | N/A (Linear additions) |
+| **S-Box / Nonlinear Core** | 8-Round Balanced Mini-Feistel + Whitening ($N_{\text{bio}}$) | Boolean Majority ($\text{Maj}$) and Choice ($\text{Ch}$) | 5-bit Nonlinear Mapping ($\chi$) | Modular Addition ($x + y \pmod{2^{32}}$) |
+| **Max Differential Uniformity** | $\Delta_{\max} = 8$ | Not S-Box Bound (Carry Chains) | $\Delta_{\max} = 8$ (per 5-bit slice) | Differential carry propagation |
+| **Minimum Nonlinearity** | $\text{NL} = 100$ | Algebraic Degree 2 | $\text{NL} = 8$ (per 5-bit slice) | N/A (Linear additions) |
 | **Active S-Boxes / Steps** | $n_{\text{act}} \ge 544$ (16 rounds) | 64 rounds | $\ge 24$ active slices | 7 rounds per chunk |
-| **Upper Bound $P_{\text{diff}}$** | $\le 2^{-2401.7}$ | Asymptotic heuristic | $\le 2^{-480}$ | Asymptotic heuristic |
-| **Linear Hull $|C_{\text{trail}}|$** | $\le 2^{-1088}$ | Matsui correlation $> 2^{-128}$ | $\le 2^{-256}$ | Matsui correlation $> 2^{-128}$ |
+| **Upper Bound $P_{\text{diff}}$** | $\le 2^{-2720.0}$ | Asymptotic heuristic | $\le 2^{-480}$ | Asymptotic heuristic |
+| **Linear Hull $|C_{\text{trail}}|$** | $\le 2^{-1193.0}$ | Matsui correlation $> 2^{-128}$ | $\le 2^{-256}$ | Matsui correlation $> 2^{-128}$ |
 | **Length-Extension Vulnerability** | Fully Immune (HAIFA / Duplex Sponge) | **Vulnerable** (Merkle-Damgard) | Fully Immune (Sponge Capacity) | Fully Immune (Tree Domain Flags) |
 
 ### 2.2 Toroidal Elimination of Edge and Corner Weaknesses
@@ -116,10 +116,16 @@ $$
 Every byte coordinate $(r, c) \in \mathbb{T}^2$ has an identical 4-neighbor Von Neumann neighborhood:
 
 $$
-\mathcal{N}(r, c) = \bigl\{ ((r-1) \bmod 8, c), \; ((r+1) \bmod 8, c), \; (r, (c-1) \bmod 8), \; (r, (c+1) \bmod 8) \bigr\}
+\mathcal{N}(r, c) = \left\lbrace ((r - 1) \bmod 8, c), \; ((r + 1) \bmod 8, c), \; (r, (c - 1) \bmod 8), \; (r, (c + 1) \bmod 8) \right\rbrace
 $$
 
-Coupled with the circulant MDS hyper-diffusion matrix $\text{circ}(02, 03, 01, 01)$ over $\mathbb{F}_{2^8}$ (optimal branch number $\mathcal{B}_{\text{MDS}} = 5$), full active dispersion across all 64 coordinates is achieved within two rounds.
+Coupled with the circulant MDS hyper-diffusion matrix:
+
+$$
+\mathbf{M}_{\text{MDS}} = \text{circ}(02, 03, 01, 01) \in \mathcal{M}_{4 \times 4}(\mathbb{F}_{2^8})
+$$
+
+with optimal branch number $\mathcal{B}_{\text{MDS}} = 5$, full active dispersion across all 64 coordinates is achieved within two rounds.
 
 ---
 
@@ -291,7 +297,7 @@ TORIX-512 eliminates both vulnerabilities through:
 1. **When to Choose TORIX-512:**
    - When **Post-Quantum forward secrecy** is required: TORIX-512 Duplex Sponge guarantees $192\text{-bit}$ Grover quantum security ($c = 384$).
    - When **Length-Extension Attack Immunity** is non-negotiable: The HAIFA cumulative bit counter eliminates slide and length-extension vulnerabilities present in SHA-256.
-   - When **Provable Mathematical Bounds** are mandated: Guaranteed $n_{\text{act}} \ge 544$ active S-boxes prove differential trail probability $P_{\text{diff}} \le 2^{-2401.7}$.
+   - When **Provable Mathematical Bounds** are mandated: Guaranteed $n_{\text{act}} \ge 544$ active S-boxes prove differential trail probability $P_{\text{diff}} \le 2^{-2720.0}$.
    - For **Constrained Embedded Systems**: Compact $64\text{-byte}$ state footprint with $\mathcal{O}(1)$ zero dynamic memory allocation.
 
 2. **When to Choose Industry Standards:**

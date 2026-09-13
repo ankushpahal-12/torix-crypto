@@ -48,7 +48,7 @@ $$
 \mathcal{S}^{(16)} = (\mathcal{R}_{15} \circ \mathcal{R}_{14} \circ \cdots \circ \mathcal{R}_0)(\mathcal{S}^{(0)})
 $$
 
-Executes all four macrocycles ($A \to B \to C \to D \times 4$). Deployed during initialization, key absorption, finalization, and tag generation where maximal margin ($n_{\text{act}} \ge 544$, $P_{\text{diff}} \le 2^{-2401.7}$) is mandatory.
+Executes all four macrocycles ($A \to B \to C \to D \times 4$). Deployed during initialization, key absorption, finalization, and tag generation where maximal margin ($n_{\text{act}} \ge 544$, $P_{\text{diff}} \le 2^{-2720.0}$) is mandatory.
 
 **Reduced Permutation P_8 (8 Rounds):**
 

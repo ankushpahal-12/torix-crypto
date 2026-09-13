@@ -2,8 +2,8 @@
 Project H-512: Phase 11 Formal Cryptanalysis & Security Bounds Verification Suite
 ================================================================================
 Comprehensive mathematical validation of security bounds against:
-1. Verification 1: Differential Uniformity (DDT) & Single S-Box Max Probability (delta_max <= 10)
-2. Verification 2: Linear Cryptanalysis (LAT), Maximal Spectral Bias & Nonlinearity (NL = 96)
+1. Verification 1: Differential Uniformity (DDT) & Single S-Box Max Probability (delta_max <= 8)
+2. Verification 2: Linear Cryptanalysis (LAT), Maximal Spectral Bias & Nonlinearity (NL = 100)
 3. Verification 3: Branch Number Proofs & Active S-Box Lower Bound across 16 Rounds
 4. Verification 4: Boolean Coordinate ANF & Exact Algebraic Degree Verification (deg = 7)
 5. Verification 5: HAIFA Length-Extension Resistance Invariant Proof
@@ -68,7 +68,7 @@ def verify_differential_uniformity():
     print(f"[*] Zero-Difference Check    : DDT[0, 0] = {ddt[0, 0]} (Expected: 256)")
     print(f"[*] Row Sums Check           : All rows sum to {np.sum(ddt[1, :])}")
 
-    assert delta_max <= 10, f"Differential uniformity too high: delta_max = {delta_max} > 10"
+    assert delta_max <= 8, f"Differential uniformity too high: delta_max = {delta_max} > 8"
     assert ddt[0, 0] == 256, "DDT identity check failed"
     assert np.all(np.sum(ddt, axis=1) == 256), "DDT row probability conservation violated"
 
@@ -116,8 +116,8 @@ def verify_linear_cryptanalysis():
     print(f"[*] Maximal Correlation (c)  : c_max = 2*eps = 2^(-{ -math.log2(c_max):.3f} )")
     print(f"[*] Minimum Nonlinearity NL  : NL(N_bio) = 128 - {max_bias_count} = {nonlinearity}")
 
-    assert max_bias_count <= 32, f"Linear bias too high: {max_bias_count} > 32"
-    assert nonlinearity >= 96, f"Nonlinearity too low: {nonlinearity} < 96"
+    assert max_bias_count <= 28, f"Linear bias too high: {max_bias_count} > 28"
+    assert nonlinearity >= 100, f"Nonlinearity too low: {nonlinearity} < 100"
 
     print(f"[+] PASS: S-Box achieves optimal nonlinearity NL = {nonlinearity} and bias epsilon = 2^(-{epsilon_bits:.1f}).")
     return nonlinearity, c_max
@@ -182,8 +182,8 @@ def verify_branch_numbers_and_wide_trail(p_max: float, c_max: float):
     assert log2_p_diff <= -512, f"Differential security margin insufficient: P_diff = 2^({log2_p_diff})"
     assert log2_c_trail <= -256, f"Linear correlation security margin insufficient: C_trail = 2^({log2_c_trail})"
 
-    print("[+] PASS: 16-round differential characteristic probability P_diff <= 2^(-598.8) << 2^(-512) PROVEN.")
-    print("[+] PASS: 16-round linear correlation |C_trail| <= 2^(-256) PROVEN.")
+    print(f"[+] PASS: 16-round differential characteristic probability P_diff <= 2^({log2_p_diff:.1f}) << 2^(-512) PROVEN.")
+    print(f"[+] PASS: 16-round linear correlation |C_trail| <= 2^({log2_c_trail:.1f}) << 2^(-256) PROVEN.")
 
 
 # ==============================================================================
@@ -251,7 +251,7 @@ def verify_haifa_length_extension_resistance():
     hasher_adv = h512.H512Hasher()
     # Attempt to inject intermediate digest as state
     adv_state = [[h_orig[r * 8 + c] for c in range(8)] for r in range(8)]
-    hasher_adv.S = adv_state
+    hasher_adv.state = adv_state
     hasher_adv.update(m_extension)
     forged_digest = hasher_adv.digest()
 

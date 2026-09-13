@@ -60,7 +60,11 @@ def verify_bijectivity_and_invertibility():
 
     # 3. Fixed points and cycle decomposition
     fixed_points = [x for x in range(256) if n_bio(x) == x]
+    opp_fixed_points = [x for x in range(256) if n_bio(x) == (x ^ 0xFF)]
     print(f"[*] Fixed Points (N(x) == x): {len(fixed_points)} ({fixed_points})")
+    print(f"[*] Opposite Fixed Points (N(x) == x ^ 0xFF): {len(opp_fixed_points)} ({opp_fixed_points})")
+    assert len(fixed_points) == 0, f"Expected 0 fixed points, got {len(fixed_points)}"
+    assert len(opp_fixed_points) == 0, f"Expected 0 opposite fixed points, got {len(opp_fixed_points)}"
 
     # Cycle lengths
     visited = set()
@@ -77,7 +81,8 @@ def verify_bijectivity_and_invertibility():
 
     print(f"[*] Permutation Disjoint Cycles: {len(cycles)} cycles")
     print(f"[*] Cycle Lengths: {sorted(cycles, reverse=True)}")
-    print("[+] PASS: N_bio is a strictly invertible permutation over GF(2^8).")
+    assert sorted(cycles, reverse=True) == [171, 73, 12], f"Unexpected cycle structure: {sorted(cycles, reverse=True)}"
+    print("[+] PASS: N_bio is a strictly invertible permutation over GF(2^8) with zero fixed/opposite fixed points.")
 
 
 # ==============================================================================
@@ -120,8 +125,8 @@ def verify_differential_uniformity():
         pct = (entry_counts[val] / 65280.0) * 100.0
         print(f"    Entry {val:2d} : {entry_counts[val]:5d} pairs ({pct:5.2f}%)")
 
-    assert max_d_entry <= 16, f"Differential uniformity is too high: {max_d_entry}"
-    print("[+] PASS: Differential uniformity is low, resisting differential attacks.")
+    assert max_d_entry <= 8, f"Differential uniformity is too high: {max_d_entry}"
+    print("[+] PASS: Differential uniformity delta_max <= 8 achieved, resisting differential attacks.")
 
 
 # ==============================================================================
@@ -167,10 +172,10 @@ def verify_linear_cryptanalysis():
 
     print(f"[*] Maximum Linear Approximation Bias : {max_lat_bias} / 128 (epsilon = {spectral_bias:.4f})")
     print(f"    (Occurs at mask_in = 0x{best_a:02x}, mask_out = 0x{best_b:02x})")
-    print(f"[*] Minimum S-Box Nonlinearity (NL)    : {nonlinearity} (Target >= 96)")
+    print(f"[*] Minimum S-Box Nonlinearity (NL)    : {nonlinearity} (Target >= 100)")
 
-    assert nonlinearity >= 96, f"Nonlinearity is too low: {nonlinearity}"
-    print("[+] PASS: Strong resistance against Matsui's Linear Cryptanalysis (FWHT Verified).")
+    assert nonlinearity >= 100, f"Nonlinearity is too low: {nonlinearity}"
+    print("[+] PASS: Strong resistance against Matsui's Linear Cryptanalysis (NL >= 100 FWHT Verified).")
 
 
 # ==============================================================================

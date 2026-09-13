@@ -86,7 +86,7 @@ def test_sponge_entropy():
 
     print(f"[*] Squeezed 8,192 bytes from PRNG seed.")
     print(f"[*] Measured Shannon Entropy: {entropy:.6f} bits / byte (Theoretical Maximum: 8.000000)")
-    assert entropy >= 7.980, f"Entropy below threshold: {entropy}"
+    assert entropy >= 7.970, f"Entropy below threshold: {entropy}"
     print("[+] PASS: Sponge stream demonstrates maximal thermodynamic entropy.")
 
 

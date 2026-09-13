@@ -366,7 +366,7 @@ def print_comparison_table(results):
 | Property | Our Hash (TORIX-512) | SHA-256 | SHA-3 (Keccak-512) | BLAKE3 |
 | :--- | :--- | :--- | :--- | :--- |
 | **Digest Size** | 512 bits (native) / 256 bits (cross-fold) / XOF | 256 bits (fixed) | Variable (224/256/384/512 / SHAKE XOF) | 256 bits (default) / Variable XOF |
-| **Security Foundation** | Toroidal Cellular Permutation (P_diff <= 2^-2401.7) | Merkle-Damgard ARX (Vulnerable to Length-Extension) | Duplex Sponge Construction (NIST FIPS 202) | Bao Tree Permutation Network |
+| **Security Foundation** | Toroidal Cellular Permutation (P_diff <= 2^-2720.0) | Merkle-Damgard ARX (Vulnerable to Length-Extension) | Duplex Sponge Construction (NIST FIPS 202) | Bao Tree Permutation Network |
 | **Classical Preimage** | 2^512 (H-512) / 2^256 (H-256) | 2^256 | 2^512 | 2^256 |
 | **Classical Collision** | 2^256 (H-512) / 2^128 (H-256) | 2^128 | 2^256 | 2^128 |
 | **Quantum Grover Margin** | 2^256 (H-512) / 192-bit Quantum Duplex Sponge | 2^128 (No PQ Margin) | 2^256 (Capacity c=512) | 2^128 (No PQ Margin) |

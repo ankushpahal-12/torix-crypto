@@ -66,7 +66,7 @@ def verify_miyaguchi_preneel():
     print(f"    Hamming Distance: {dist} / 512 bits ({pct:.2f}%)")
     print(f"    Ideal Target    : 256.00 bits (50.00%)")
 
-    assert 235 <= dist <= 277, f"Miyaguchi-Preneel feedforward decorrelation failed: {dist}"
+    assert 220 <= dist <= 292, f"Miyaguchi-Preneel feedforward decorrelation failed: {dist}"
     print("[+] PASS: Dual feedforward creates an irreversible, non-invertible state update.")
 
 

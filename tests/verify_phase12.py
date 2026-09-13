@@ -131,7 +131,7 @@ def verify_sbox_table():
     print("=" * 70)
 
     # Read SBOX table from constants header
-    header_path = os.path.join(os.path.dirname(__file__), "h512_constants.h")
+    header_path = os.path.join(os.path.dirname(__file__), "..", "src", "h512_constants.h")
     with open(header_path, "r") as f:
         content = f.read()
 

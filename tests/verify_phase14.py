@@ -26,7 +26,7 @@ import os
 import subprocess
 import time
 import numpy as np
-from scipy import stats
+from scipy import stats  # type: ignore
 
 import h512
 from h512 import (
@@ -139,13 +139,15 @@ def verify_memory_cleansing():
     """
     cleanse_src_path = os.path.join(os.path.dirname(__file__), "test_cleanse.c")
     cleanse_exe_path = os.path.join(os.path.dirname(__file__), "test_cleanse.exe")
+    src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+    h512_c_path = os.path.join(src_dir, "h512.c")
 
     with open(cleanse_src_path, "w") as f:
         f.write(test_src)
 
     try:
         # Compile with maximum optimization (-O3) to verify dead-code elimination resistance
-        cmd_compile = ["gcc", "-O3", "-std=c99", cleanse_src_path, "h512.c", "-o", cleanse_exe_path]
+        cmd_compile = ["gcc", "-O3", "-std=c99", cleanse_src_path, h512_c_path, f"-I{src_dir}", "-o", cleanse_exe_path]
         subprocess.check_call(cmd_compile)
 
         output = subprocess.check_output([cleanse_exe_path]).decode("ascii").strip()
