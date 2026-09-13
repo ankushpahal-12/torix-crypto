@@ -304,3 +304,7 @@ TORIX-512 eliminates both vulnerabilities through:
    - **SHA-256:** When legacy compliance, FIPS certification, or hardware SHA-NI ASIC acceleration is available.
    - **SHA-3 / Keccak:** When official NIST FIPS 202 sponge standardization is required.
    - **BLAKE3:** When raw multi-core throughput on large multi-gigabyte data sets via AVX-512 is the singular engineering priority.
+
+3. **Two-Track Methodology Reference:**
+   - To examine the rigorous separation between formally verified mathematical ground truth (differential bounds, linear hulls, SAC saturation) and future hardware targets (AVX2 SIMD core, parallel tree hashing, FPGA synthesis), consult the **[Performance and Security Roadmap](PERFORMANCE_AND_SECURITY_ROADMAP.md)**.
+

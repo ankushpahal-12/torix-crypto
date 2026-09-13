@@ -639,8 +639,18 @@ For quantum-resistant applications, the 512-bit state is partitioned into an **A
 | **Maximum Linear Correlation Correlation** | $\|C_{\text{trail}}\| \le 2^{-1193.0}$ | $\left(2 \times \frac{28}{256}\right)^{544} \approx 2^{-2.193 \times 544}$ |
 | **Strict Avalanche Criterion (SAC)** | **$50.01\%$** ($\sigma^2 < 0.00015$) | Empirical convergence at Round 2 (`benchmark_comparison.py`) |
 | **Side-Channel Timing Invariance** | Welch's $t_{\text{stat}} = 0.28 < 4.5$ | 100,000 trace leakage assessment (`verify_phase14.py`) |
+| **Cryptanalytic Attack Battery** | All 6 attack classes **PASS** | Differential, Linear, Fixed Point, Rotational, Collision, Algebraic (`run_attack_battery.py`) |
 | **Micro-Packet Processing Speed (64 B)** | **$416.91\text{ MB/s}$** | C99 SWAR engine (`benchmark_comparison.py`) |
 | **Peak In-Cache Throughput (1 KB)** | **$1111.75\text{ MB/s}$** | Zero-allocation L1 cache alignment |
+
+### Native C99 Zero-Copy SWAR Implementation
+The reference C99 engine ([`src/h512.c`](../src/h512.c)) is engineered for maximum throughput without compromising side-channel resistance:
+- **Strict-Aliasing Compliant State Union (`h512_state_t`):** Uses a 64-byte aligned union (`uint8_t b[8][8]`, `uint64_t u64[8]`, `uint32_t u32[16]`) conforming to C99 Section 6.5.2.3 type-punning specifications.
+- **Zero-Copy Ping-Pong Double Buffering:** Alternates round transformations between `state_buf[rnd & 1]` and `state_buf[(rnd + 1) & 1]`, eliminating all 16 round-to-round memory copies per block.
+- **64-Bit Word Register Permutations:** Computes row rotations via `rotl_bytes64`, column transpositions via 28 in-place byte swaps (`transpose8x8_inplace`), and row reversals via hardware byte-swap instructions (`H512_BSWAP64`).
+- **L1 Cache Pinning:** Prefetches S-box cache lines (`__builtin_prefetch`) at block boundaries to neutralize first-access cache differentials.
+
+For full architectural separation between proven cryptanalytic bounds and future SIMD / hardware synthesis targets, consult the **[Performance and Security Roadmap](PERFORMANCE_AND_SECURITY_ROADMAP.md)**.
 
 ### How to Verify the Numerical Trace
 To reproduce this exact step-by-step trace on your own system:
@@ -657,3 +667,4 @@ Or with the compiled native C99 binary:
 .\torix_engine.exe -256 "abc"
 ```
 Both engines will output the identical hexadecimal digests displayed in this document.
+

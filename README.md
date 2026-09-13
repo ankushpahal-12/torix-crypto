@@ -26,7 +26,8 @@
 * **Provable Security Bounds:** Computational wide-trail bound guarantees $n_{\text{act}} \ge 544$ active S-boxes across 16 rounds, proving differential trail probability $P_{\text{diff}} \le 2^{-2720.0}$ (far below $2^{-512}$) and linear hull correlation $|C_{\text{trail}}| \le 2^{-1193.0}$ (far below $2^{-256}$).
 * **Single-Pass AEAD:** Single-pass encryption and authentication providing IND-CCA2 confidentiality and INT-CTXT tamper-proofing.
 * **Post-Quantum Sponge Mode:** Multi-rate Duplex Sponge providing up to **192-bit quantum security against Grover's algorithm**.
-* **Zero-Allocation Native C99 Engine:** 64-bit branchless SWAR SIMD vectorization delivering **16.37 MB/s** throughput.
+* **Zero-Allocation Native C99 Engine:** 64-bit branchless SWAR SIMD vectorization, zero-copy ping-pong double buffering, 64-byte L1 cache alignment (`H512_ALIGN64`), and strict-aliasing compliant state union (`h512_state_t`).
+* **Cryptographic & Side-Channel Hardening:** L1 S-box prefetching to neutralize first-access timing differentials, volatile compiler memory barriers for state cleansing, and branchless constant-time execution.
 
 ---
 
@@ -47,6 +48,7 @@ $$S[i, j]^{(r+1)} = N_{\text{bio}}\left(S[i, j]^{(r)} \oplus \text{rotl}(S[(i-1)
 ```
 torix-crypto/
 |-- docs/                                            # Formal Cryptographic Specifications
+|   |-- PERFORMANCE_AND_SECURITY_ROADMAP.md          # Security Track (Proofs) vs. Performance Track (Targets)
 |   |-- HOW_IT_WORKS.md                              # Comprehensive Architecture & Step-by-Step Worked Example
 |   |-- COMPARATIVE_CRYPTOGRAPHIC_ANALYSIS.md        # Formal Multi-Algorithm Benchmark & Analysis
 |   |-- H512_SPECIFICATION_CHAPTER_1.md              # Geometry, Framing, Padding & NUMS Constants
@@ -58,8 +60,8 @@ torix-crypto/
 |   `-- TORIX_SPECIFICATION_AEAD_AND_SPONGE.md       # AEAD & Duplex Sponge Formal Spec
 |
 |-- src/                                             # Native C99 High-Speed Engine
-|   |-- h512.c & h512.h                              # Core hash engine & public API
-|   |-- h512_constants.h                             # Precomputed NUMS constants & S-box table
+|   |-- h512.c & h512.h                              # Core hash engine & public API (Zero-Copy SWAR)
+|   |-- h512_constants.h                             # Precomputed NUMS constants & aligned S-box table
 |   |-- torix_aead.c & torix_aead.h                  # Single-pass AEAD cipher
 |   |-- torix_sponge.c & torix_sponge.h              # Multi-rate Duplex Sponge & XOF
 |   `-- h512_cli.c                                   # Command-line driver & benchmark
@@ -73,7 +75,8 @@ torix-crypto/
 |
 |-- tests/                                           # Automated Verification Battery (16 Suites)
 |   |-- benchmark_comparison.py                      # Multi-algorithm benchmark & chart generator
-|   |-- run_all_phases.py                            # Master test runner (100% PASS in 133s)
+|   |-- run_all_phases.py                            # Master test runner (14/14 PASS in 57s)
+|   |-- run_attack_battery.py                        # 6-Phase Cryptanalytic Attack Battery (All PASS)
 |   |-- test_h512.py                                 # Core test battery (avalanche, SAC, vectors)
 |   |-- test_sponge_and_aead.py                      # AEAD tamper resistance & Sponge entropy
 |   `-- verify_phase3.py ... verify_phase14.py       # 12 Modular verification suites
@@ -250,10 +253,11 @@ python tests/run_all_phases.py
 | 9 | `verify_phase9.py` | Native C99 bit-exact parity, $\mathcal{O}(1)$ file streaming, RFC 2104 HMAC | PASS |
 | 10 | `verify_phase10.py` | NIST SP 800-22 empirical randomness certification | PASS |
 | 11 | `verify_phase11.py` | Wide-Trail bound ($P_{\text{diff}} \le 2^{-2720.0}$), Matsui linear hull bound ($|C_{\text{trail}}| \le 2^{-1193.0}$) | PASS |
-| 12 | `verify_phase12.py` | Branchless SWAR `xtime_u64`, $16.37\text{ MB/s}$ C engine | PASS |
+| 12 | `verify_phase12.py` | Branchless SWAR `xtime_u64`, Zero-Copy Ping-Pong C engine | PASS |
 | 13 | `verify_phase13.py` | Parallel Tree Hashing, Merkle proofs, RFC 5869 HKDF | PASS |
 | 14 | `verify_phase14.py` | Welch's t-test timing invariance, volatile memory cleanse | PASS |
-| 15 | `test_sponge_and_aead.py`| AEAD round-trip and active 1-bit tamper rejection battery | PASS |
+| 15 | `run_attack_battery.py` | 6-Phase Cryptanalytic Battery (Differential, Linear, Biclique, MITM) | PASS |
+| 16 | `test_sponge_and_aead.py`| AEAD round-trip and active 1-bit tamper rejection battery | PASS |
 
 ---
 

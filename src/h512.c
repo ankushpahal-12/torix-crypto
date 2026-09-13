@@ -8,6 +8,19 @@
 #include "h512_constants.h"
 #include <string.h>
 
+#if defined(_MSC_VER)
+    #define H512_BSWAP64(x) _byteswap_uint64(x)
+#else
+    #define H512_BSWAP64(x) __builtin_bswap64(x)
+#endif
+
+/* 64-Byte Cache Aligned State Union (Permits Strict Aliasing & SIMD Layout) */
+typedef union {
+    uint8_t  b[8][8];
+    uint64_t u64[8];
+    uint32_t u32[16];
+} H512_ALIGN64 h512_state_t;
+
 /* Bitwise Utilities */
 static inline uint8_t rotl8(uint8_t x, int n) {
     n &= 7;
@@ -17,6 +30,21 @@ static inline uint8_t rotl8(uint8_t x, int n) {
 static inline uint8_t rotl4(uint8_t x, int n) {
     n &= 3;
     return (uint8_t)(((x << n) | (x >> (4 - n))) & 0x0F);
+}
+
+static inline uint64_t rotl_bytes64(uint64_t x, int r) {
+    r &= 7;
+    return r ? ((x >> (r * 8)) | (x << ((8 - r) * 8))) : x;
+}
+
+static inline void transpose8x8_inplace(uint8_t S[8][8]) {
+    for (int r = 0; r < 7; r++) {
+        for (int c = r + 1; c < 8; c++) {
+            uint8_t tmp = S[r][c];
+            S[r][c] = S[c][r];
+            S[c][r] = tmp;
+        }
+    }
 }
 
 /* Phase 12 Optimization: L1-Cache Aligned S-Box Lookup */
@@ -33,81 +61,57 @@ static inline uint64_t xtime_u64(uint64_t x) {
 }
 
 /* Phase 12 Optimization: Vectorized GF(2^8) Circulant MDS Hyper-Diffusion */
-static inline void apply_mds_hyper_diffusion(uint8_t S[8][8]) {
-    uint64_t *R = (uint64_t *)S;
-
+static inline void apply_mds_hyper_diffusion(h512_state_t *S) {
     /* Top 4 rows (columns 0..7) */
-    uint64_t r0 = R[0], r1 = R[1], r2 = R[2], r3 = R[3];
+    uint64_t r0 = S->u64[0], r1 = S->u64[1], r2 = S->u64[2], r3 = S->u64[3];
     uint64_t t_top = r0 ^ r1 ^ r2 ^ r3;
-    R[0] = r0 ^ t_top ^ xtime_u64(r0 ^ r1);
-    R[1] = r1 ^ t_top ^ xtime_u64(r1 ^ r2);
-    R[2] = r2 ^ t_top ^ xtime_u64(r2 ^ r3);
-    R[3] = r3 ^ t_top ^ xtime_u64(r3 ^ r0);
+    S->u64[0] = r0 ^ t_top ^ xtime_u64(r0 ^ r1);
+    S->u64[1] = r1 ^ t_top ^ xtime_u64(r1 ^ r2);
+    S->u64[2] = r2 ^ t_top ^ xtime_u64(r2 ^ r3);
+    S->u64[3] = r3 ^ t_top ^ xtime_u64(r3 ^ r0);
 
     /* Bottom 4 rows (columns 0..7) */
-    uint64_t r4 = R[4], r5 = R[5], r6 = R[6], r7 = R[7];
+    uint64_t r4 = S->u64[4], r5 = S->u64[5], r6 = S->u64[6], r7 = S->u64[7];
     uint64_t t_bot = r4 ^ r5 ^ r6 ^ r7;
-    R[4] = r4 ^ t_bot ^ xtime_u64(r4 ^ r5);
-    R[5] = r5 ^ t_bot ^ xtime_u64(r5 ^ r6);
-    R[6] = r6 ^ t_bot ^ xtime_u64(r6 ^ r7);
-    R[7] = r7 ^ t_bot ^ xtime_u64(r7 ^ r4);
+    S->u64[4] = r4 ^ t_bot ^ xtime_u64(r4 ^ r5);
+    S->u64[5] = r5 ^ t_bot ^ xtime_u64(r5 ^ r6);
+    S->u64[6] = r6 ^ t_bot ^ xtime_u64(r6 ^ r7);
+    S->u64[7] = r7 ^ t_bot ^ xtime_u64(r7 ^ r4);
 }
 
 /* Phase 12 Optimization: Register-Level Quadrant Swap (Zero Memcpy) */
-static inline void swap_quadrants(uint8_t S[8][8]) {
-    uint32_t *w = (uint32_t *)S;
+static inline void swap_quadrants(h512_state_t *S) {
     for (int r = 0; r < 4; r++) {
-        /* Q0 (row r left) <-> Q3 (row r+4 right) */
-        uint32_t tmp = w[2 * r];
-        w[2 * r] = w[2 * (r + 4) + 1];
-        w[2 * (r + 4) + 1] = tmp;
+        uint32_t tmp = S->u32[2 * r];
+        S->u32[2 * r] = S->u32[2 * (r + 4) + 1];
+        S->u32[2 * (r + 4) + 1] = tmp;
 
-        /* Q1 (row r right) <-> Q2 (row r+4 left) */
-        tmp = w[2 * r + 1];
-        w[2 * r + 1] = w[2 * (r + 4)];
-        w[2 * (r + 4)] = tmp;
+        tmp = S->u32[2 * r + 1];
+        S->u32[2 * r + 1] = S->u32[2 * (r + 4)];
+        S->u32[2 * (r + 4)] = tmp;
     }
 }
 
-/* Phase 6: Global Permutations */
-static inline void apply_global_permutation(uint8_t S[8][8], int perm_mode) {
-    uint8_t temp[8][8];
-    memcpy(temp, S, 64);
-
-    if (perm_mode == 0) {
+/* Phase 6: Global Permutations (SWAR In-Place Word Permutation) */
+static inline void apply_global_permutation(h512_state_t *S, int fam) {
+    if (fam == 0) {
         /* Shift-Rows: row r shifted left by r */
-        for (int r = 0; r < 8; r++) {
-            for (int c = 0; c < 8; c++) {
-                S[r][c] = temp[r][(c + r) & 7];
-            }
-        }
-    } else if (perm_mode == 1) {
+        for (int r = 1; r < 8; r++) S->u64[r] = rotl_bytes64(S->u64[r], r);
+    } else if (fam == 1) {
         /* Matrix Transposition: S[r][c] = S[c][r] */
-        for (int r = 0; r < 8; r++) {
-            for (int c = 0; c < 8; c++) {
-                S[r][c] = temp[c][r];
-            }
-        }
-    } else if (perm_mode == 2) {
+        transpose8x8_inplace(S->b);
+    } else if (fam == 2) {
         /* Shift-Rows + Transposition */
-        for (int r = 0; r < 8; r++) {
-            for (int c = 0; c < 8; c++) {
-                uint8_t shifted = temp[r][(c + r) & 7];
-                S[c][r] = shifted;
-            }
-        }
+        for (int r = 1; r < 8; r++) S->u64[r] = rotl_bytes64(S->u64[r], r);
+        transpose8x8_inplace(S->b);
     } else {
         /* Shift-Rows + Row-Reverse: shifted[r][7 - c] */
-        for (int r = 0; r < 8; r++) {
-            for (int c = 0; c < 8; c++) {
-                S[r][c] = temp[r][((7 - c) + r) & 7];
-            }
-        }
+        for (int r = 0; r < 8; r++) S->u64[r] = H512_BSWAP64(rotl_bytes64(S->u64[r], r));
     }
 }
 
-/* Phase 7: Unified Round Engine */
-static void round_transform(uint8_t S[8][8], int rnd) {
+/* Phase 7: Unified Round Engine (Zero Memcpy Dual-Buffer Interface) */
+static void round_transform(const h512_state_t *S_in, h512_state_t *S_out, int rnd) {
     int fam = rnd & 3;
     static const int rotations[4][4] = {
         {1, 2, 3, 5},  /* Family A */
@@ -121,42 +125,48 @@ static void round_transform(uint8_t S[8][8], int rnd) {
     int delta = rotations[fam][3];
 
     /* Pass 1: Toroidal Context Coupling + N_bio */
-    uint8_t S_sub[8][8];
     for (int r = 0; r < 8; r++) {
+        int r_north = (r - 1) & 7;
+        int r_south = (r + 1) & 7;
         for (int c = 0; c < 8; c++) {
-            uint8_t north = S[(r - 1) & 7][c];
-            uint8_t east  = S[r][(c + 1) & 7];
-            uint8_t south = S[(r + 1) & 7][c];
-            uint8_t west  = S[r][(c - 1) & 7];
+            uint8_t north = S_in->b[r_north][c];
+            uint8_t east  = S_in->b[r][(c + 1) & 7];
+            uint8_t south = S_in->b[r_south][c];
+            uint8_t west  = S_in->b[r][(c - 1) & 7];
 
-            uint8_t context = S[r][c]
+            uint8_t context = S_in->b[r][c]
                             ^ rotl8(north, alpha)
                             ^ rotl8(east,  beta)
                             ^ rotl8(south, gamma)
                             ^ rotl8(west,  delta);
 
-            S_sub[r][c] = n_bio(context) ^ H512_RC[rnd][r][c];
+            S_out->b[r][c] = n_bio(context) ^ H512_RC[rnd][r][c];
         }
     }
 
     /* Pass 2: Involutive GF(2^8) Circulant MDS Hyper-Diffusion */
-    apply_mds_hyper_diffusion(S_sub);
+    apply_mds_hyper_diffusion(S_out);
 
     /* Pass 3: Regional Quadrant Swapping */
     if (fam == 1 || fam == 3) {
-        swap_quadrants(S_sub);
+        swap_quadrants(S_out);
     }
 
     /* Pass 4: Global Permutation */
-    apply_global_permutation(S_sub, fam);
-
-    memcpy(S, S_sub, 64);
+    apply_global_permutation(S_out, fam);
 }
 
-/* Phase 2 & 8: Compression Block Processing (Miyaguchi-Preneel) */
+/* Phase 2 & 8: Compression Block Processing (Miyaguchi-Preneel with Zero-Copy Double-Buffering) */
 static void compress_block_c(uint8_t S[8][8], const uint8_t block[64], uint64_t cumulative_bits) {
-    uint8_t S_prev[8][8];
-    memcpy(S_prev, S, 64);
+#if defined(__GNUC__) || defined(__clang__)
+    __builtin_prefetch(&H512_SBOX[0],   0, 3);
+    __builtin_prefetch(&H512_SBOX[64],  0, 3);
+    __builtin_prefetch(&H512_SBOX[128], 0, 3);
+    __builtin_prefetch(&H512_SBOX[192], 0, 3);
+#endif
+
+    h512_state_t S_prev;
+    memcpy(S_prev.b, S, 64);
 
     /* 64-bit Orthogonal message dispersal */
     uint64_t m_disp_u64[8];
@@ -174,25 +184,26 @@ static void compress_block_c(uint8_t S[8][8], const uint8_t block[64], uint64_t 
         t_bytes[7 - i] = (uint8_t)(cumulative_bits >> (i * 8));
     }
 
+    /* Zero-copy ping-pong double buffer */
+    h512_state_t state_buf[2];
     for (int r = 0; r < 8; r++) {
         for (int c = 0; c < 8; c++) {
-            S[r][c] ^= m_disp[r][c];
+            state_buf[0].b[r][c] = S[r][c] ^ m_disp[r][c];
             if (r == c) {
-                S[r][c] ^= t_bytes[r];
+                state_buf[0].b[r][c] ^= t_bytes[r];
             }
         }
     }
 
-    /* Execute 16 rounds */
+    /* Execute 16 rounds with ping-pong buffering (0 -> 1 -> 0 -> 1 ... -> 0) */
     for (int rnd = 0; rnd < 16; rnd++) {
-        round_transform(S, rnd);
+        round_transform(&state_buf[rnd & 1], &state_buf[(rnd + 1) & 1], rnd);
     }
 
-    /* 64-bit Miyaguchi-Preneel dual feedforward */
+    /* 64-bit Miyaguchi-Preneel dual feedforward (state_buf[0] holds round 15 result) */
     uint64_t *S_u64 = (uint64_t *)S;
-    const uint64_t *S_prev_u64 = (const uint64_t *)S_prev;
     for (int r = 0; r < 8; r++) {
-        S_u64[r] ^= S_prev_u64[r] ^ m_disp_u64[r];
+        S_u64[r] = state_buf[0].u64[r] ^ S_prev.u64[r] ^ m_disp_u64[r];
     }
 }
 
@@ -295,6 +306,9 @@ static volatile memset_t h512_memset_func = memset;
 void h512_cleanse(void *v, size_t n) {
     if (v && n > 0) {
         h512_memset_func(v, 0, n);
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("" : : "r"(v) : "memory");
+#endif
     }
 }
 
@@ -333,14 +347,20 @@ void h512_to_hex(const uint8_t *bytes, size_t len, char *hex_out) {
 }
 
 void h512_permute_p16(uint8_t S[8][8]) {
+    h512_state_t state_buf[2];
+    memcpy(state_buf[0].b, S, 64);
     for (int rnd = 0; rnd < 16; rnd++) {
-        round_transform(S, rnd);
+        round_transform(&state_buf[rnd & 1], &state_buf[(rnd + 1) & 1], rnd);
     }
+    memcpy(S, state_buf[0].b, 64);
 }
 
 void h512_permute_p8(uint8_t S[8][8]) {
+    h512_state_t state_buf[2];
+    memcpy(state_buf[0].b, S, 64);
     for (int rnd = 0; rnd < 8; rnd++) {
-        round_transform(S, rnd);
+        round_transform(&state_buf[rnd & 1], &state_buf[(rnd + 1) & 1], rnd);
     }
+    memcpy(S, state_buf[0].b, 64);
 }
 

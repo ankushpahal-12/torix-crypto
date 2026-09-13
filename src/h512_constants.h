@@ -2,7 +2,15 @@
 #pragma once
 #include <stdint.h>
 
-static const uint8_t H512_IV[8][8] = {
+#if defined(_MSC_VER)
+    #define H512_ALIGN64 __declspec(align(64))
+#elif defined(__GNUC__) || defined(__clang__)
+    #define H512_ALIGN64 __attribute__((aligned(64)))
+#else
+    #define H512_ALIGN64
+#endif
+
+static const H512_ALIGN64 uint8_t H512_IV[8][8] = {
     { 0x6a, 0xbb, 0x3c, 0xa5, 0x51, 0x9b, 0x1f, 0x5b },
     { 0xcb, 0x62, 0x91, 0x15, 0x67, 0x8e, 0xdb, 0x47 },
     { 0xae, 0xcf, 0x2f, 0x6d, 0x8b, 0xe3, 0x1c, 0x6f },
@@ -13,7 +21,7 @@ static const uint8_t H512_IV[8][8] = {
     { 0x66, 0x76, 0xa4, 0xc3, 0xd2, 0x1e, 0x85, 0xa2 },
 };
 
-static const uint8_t H512_RC[16][8][8] = {
+static const H512_ALIGN64 uint8_t H512_RC[16][8][8] = {
     {
         { 0xca, 0xd1, 0xea, 0xf5, 0x06, 0x0a, 0x11, 0x1b },
         { 0x28, 0x32, 0x3c, 0x43, 0x4c, 0x59, 0x5f, 0x6c },
@@ -186,7 +194,7 @@ static const uint8_t H512_RC[16][8][8] = {
  *          Cycle decomposition: [171, 73, 12] (min cycle length 12).
  * Status: FROZEN OFFICIAL CRYPTOGRAPHIC S-BOX
  */
-static const uint8_t H512_SBOX[256] = {
+static const H512_ALIGN64 uint8_t H512_SBOX[256] = {
     0x57, 0xe9, 0xfe, 0xd7, 0x66, 0xf6, 0x67, 0xeb, 0xa6, 0x7a, 0x54, 0xd5, 0x8b, 0x07, 0x46, 0x41,
     0x82, 0x8c, 0x16, 0x9a, 0x8a, 0x1b, 0x3a, 0xd8, 0xc1, 0x4e, 0x52, 0xd2, 0xc6, 0xa5, 0x9b, 0x08,
     0x03, 0x8d, 0x30, 0x18, 0x49, 0xef, 0x95, 0x58, 0xf7, 0xbc, 0xb8, 0x23, 0x71, 0x59, 0x02, 0x10,
@@ -206,7 +214,7 @@ static const uint8_t H512_SBOX[256] = {
 };
 
 /* Precomputed Inverse S-Box: H512_SBOX_INV[H512_SBOX[x]] = x for all x */
-static const uint8_t H512_SBOX_INV[256] = {
+static const H512_ALIGN64 uint8_t H512_SBOX_INV[256] = {
     0xb8, 0xbd, 0x2e, 0x20, 0x4a, 0x32, 0xcc, 0x0d, 0x1f, 0x76, 0xd8, 0x86, 0xb2, 0x5a, 0xa4, 0x89,
     0x2f, 0xcf, 0xbf, 0xd1, 0x44, 0x8a, 0x12, 0xc9, 0x23, 0xf4, 0xde, 0x15, 0x3d, 0x65, 0xf6, 0xf7,
     0x93, 0xae, 0x4e, 0x2b, 0x30, 0xc7, 0x35, 0x90, 0x67, 0xba, 0x4c, 0xd5, 0x95, 0xe6, 0xb9, 0x62,
@@ -225,5 +233,70 @@ static const uint8_t H512_SBOX_INV[256] = {
     0x39, 0xed, 0x9e, 0x66, 0xca, 0x7d, 0x05, 0x28, 0x75, 0x96, 0xcb, 0xea, 0xda, 0x6a, 0x02, 0x8b,
 };
 
-
-
+/* Phase 12 Acceleration: Pre-packed 64-bit Round Constants for single-instruction row XOR */
+static const H512_ALIGN64 uint64_t H512_RC_U64[16][8] = {
+    {
+        0x1b110a06f5ead1caULL, 0x6c5f594c433c3228ULL, 0xb3a89f99908d7e7bULL, 0xf3eee3ded3c2bcb9ULL,
+        0x49413a2d250e0bfbULL, 0x7e77706d665f534bULL, 0xb3aca6a19f938583ULL, 0xf5eae2d7cec7c3b6ULL,
+    },
+    {
+        0x29211d160e0a04fdULL, 0x625f5d5351453b2dULL, 0x969285817f7b6e64ULL, 0xccc9c1b8b1ae9b97ULL,
+        0xfdf8f1ece7e3d7d1ULL, 0x29201b1a11100b07ULL, 0x504d4b483934332aULL, 0x847c7a6964605955ULL,
+    },
+    {
+        0xb1adaaa19b96918aULL, 0xdddad9ccc4bcb7b6ULL, 0xf8f7eeeceae7e3e2ULL, 0x3f352f221d1915fdULL,
+        0x5753524f4a464342ULL, 0x79716d6b6967665fULL, 0x9f9d9894928e8681ULL, 0xbdbab7b6b2b0a7a5ULL,
+    },
+    {
+        0xebdcdbd8d5c9c2bfULL, 0x0b0702fdfbf4eeedULL, 0x302a2322201c120eULL, 0x555352504c443b37ULL,
+        0x7d74736966635c56ULL, 0x9b989795928e8a7eULL, 0xbebab5aea8a7a29fULL, 0xddd5d3cdc8c7c5c4ULL,
+    },
+    {
+        0x03f6ede9e4e3e1deULL, 0x221b1715140c0805ULL, 0x3837312f2c292523ULL, 0x58554e4c4a474643ULL,
+        0x6e6b6863605e5b5aULL, 0x938785837f797675ULL, 0xb6aca9a9a6a4a09cULL, 0xd9d5cfc9c7c4bdbcULL,
+    },
+    {
+        0xe9e7e7e5e2dfdcdaULL, 0xfefaf9f5f2f1efecULL, 0x181614130e090302ULL, 0x32302d2a28262019ULL,
+        0x524d494643413d39ULL, 0x706c6b605f5c5a58ULL, 0x8c8785807c7b7573ULL, 0xafada39d9c98908dULL,
+    },
+    {
+        0xc4c3bfbdb8b7b4b0ULL, 0xe3e2d8d3d2d1d0c7ULL, 0xf5f3efeeeceae8e6ULL, 0x0e0c0605fffefaf9ULL,
+        0x2b232221201e1b15ULL, 0x3d3d3b393835322eULL, 0x56504d4c48444340ULL, 0x6d6863605e5b5958ULL,
+    },
+    {
+        0x817e7a7776746f6dULL, 0x9998938f8f8d8583ULL, 0xb0adacaba6a2a29bULL, 0xc5c4c3c1c0b9b7b5ULL,
+        0xe0e0dcd4cdccc8c7ULL, 0xf2f0f0e8e6e6e4e2ULL, 0x0a0a0400fefefaf8ULL, 0x25221a1414120e0cULL,
+    },
+    {
+        0x3533302f2c2b2827ULL, 0x4e4b413f3d3a3936ULL, 0x6561605a5755524fULL, 0x7c767473716f6a69ULL,
+        0x918988878684807dULL, 0xa8a2a09e9c979591ULL, 0xb7b4b3b1b0aeadacULL, 0xcfcac8c7c6c1bdb9ULL,
+    },
+    {
+        0xe2dededcdbdad9d2ULL, 0xfefdf8f5f3f0e7e3ULL, 0x0f0c0b0807050501ULL, 0x1c1c1a1917151110ULL,
+        0x32312f2a2824201fULL, 0x4945443b3a383636ULL, 0x5c5b5a5552504d4aULL, 0x71706e6a6967645dULL,
+    },
+    {
+        0x8b8987867d7c7875ULL, 0x97969593908f8e8dULL, 0xa8a7a7a2a1a09e98ULL, 0xbab9b8b6afaeacacULL,
+        0xd0cfcecdccc8bfbcULL, 0xdfdddbdad8d4d1d1ULL, 0xf5f3f1eae8e7e6e1ULL, 0x040201fefdfaf9f7ULL,
+    },
+    {
+        0x110c0c0909070604ULL, 0x2d28261f1c181712ULL, 0x3e3d39373635332eULL, 0x4d4d4a4845434240ULL,
+        0x615f5e5e58555250ULL, 0x70706e6d6a666463ULL, 0x7f7d7c7a78777472ULL, 0x8b8a888786858281ULL,
+    },
+    {
+        0xa2a29d9d9796908eULL, 0xb9b6b6b5b0aea7a4ULL, 0xcac6c3c1bdbcbabaULL, 0xdad7d7d5d3d0d0ceULL,
+        0xede9e8e2e2dedcdaULL, 0xf9f8f8f7f2f0efedULL, 0x0b0905020200fffbULL, 0x1a19171715140d0cULL,
+    },
+    {
+        0x27252421201f1d1bULL, 0x3d3a3933312e2b2aULL, 0x504d4c4a45443f3eULL, 0x5b5a595755535251ULL,
+        0x716d6d6a68676562ULL, 0x898884807f7b7571ULL, 0x96949290908e8d89ULL, 0xa0a09d9d9c9b9998ULL,
+    },
+    {
+        0xadaaa9a7a6a5a4a3ULL, 0xbdbcbbb9b8b3b2b1ULL, 0xcbcac8c5c4c2bfbeULL, 0xe0dddbd9d8d3d2ccULL,
+        0xeeeceae6e6e5e4e3ULL, 0x01fef8f5f5f2f1f0ULL, 0x12110e0c0b080302ULL, 0x221f1a1817151312ULL,
+    },
+    {
+        0x302e2e2c28252423ULL, 0x3d3c393837333231ULL, 0x4d4c4a4542413e3dULL, 0x5c5a59585751514fULL,
+        0x706e6c6b6861605dULL, 0x7e7c7c7977757170ULL, 0x8c8a898685828281ULL, 0x97959392908f8e8dULL,
+    },
+};

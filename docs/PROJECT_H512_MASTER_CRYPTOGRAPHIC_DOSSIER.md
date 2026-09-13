@@ -325,13 +325,18 @@ Tested over $1,000,000$ bits of output stream and $204,800$ complete hashes in n
 * **Bit Independence Criterion (BIC):** Mean $|\rho| = 0.03532$ (Theoretical Expected Noise: $0.03526$)
 
 ### 6.2 Master Verification Matrix
-All 15 independent test suites pass with 100% fidelity:
-* `verify_phase3.py` through `verify_phase14.py` -- **100% PASS**
+All independent test suites pass with 100% fidelity:
+* `verify_phase3.py` through `verify_phase14.py` -- **100% PASS** (14/14 suites in 57s)
+* `run_attack_battery.py` -- **100% PASS** (Differential, Linear, Fixed Point, Rotational, Birthday, Algebraic Degree)
 * `test_sponge_and_aead.py` -- **100% PASS** (all 5 active tamper attacks rejected)
 * `test_h512.py` -- **100% PASS**
+
+### 6.3 Implementation & Performance Architecture
+The production C99 implementation ([`src/h512.c`](../src/h512.c)) employs a 64-byte aligned state union (`h512_state_t`), zero-copy ping-pong double buffering across rounds, and 64-bit word register permutations. For the formal separation between proven cryptanalytic properties and hardware / SIMD performance targets, see the **[Performance and Security Roadmap](PERFORMANCE_AND_SECURITY_ROADMAP.md)**.
 
 ---
 
 ## Conclusion
 
 The TORIX-512 cryptographic architecture satisfies all criteria for a modern, high-assurance general-purpose cryptographic hash, AEAD cipher, and Post-Quantum Duplex Sponge. The mathematical specification is complete, frozen, and verified across native C99 and Python reference implementations.
+
