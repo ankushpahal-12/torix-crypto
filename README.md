@@ -47,6 +47,7 @@ $$S[i, j]^{(r+1)} = N_{\text{bio}}\left(S[i, j]^{(r)} \oplus \text{rotl}(S[(i-1)
 ```
 torix-crypto/
 |-- docs/                                            # Formal Cryptographic Specifications
+|   |-- HOW_IT_WORKS.md                              # Comprehensive Architecture & Step-by-Step Worked Example
 |   |-- COMPARATIVE_CRYPTOGRAPHIC_ANALYSIS.md        # Formal Multi-Algorithm Benchmark & Analysis
 |   |-- H512_SPECIFICATION_CHAPTER_1.md              # Geometry, Framing, Padding & NUMS Constants
 |   |-- H512_SPECIFICATION_CHAPTER_2_NBIO.md         # Nonlinear Core N_bio & Feistel Table
@@ -176,6 +177,14 @@ gcc -O3 -std=c99 src/h512.c src/torix_aead.c src/torix_sponge.c src/h512_cli.c -
 
 ---
 
+## How It Works: End-to-End Cryptographic Engine
+
+For a complete, comprehensive mathematical and algorithmic walkthrough of every single stage of the TORIX-512 engine—including 2-torus boundary wrapping, NIST $10^*1$ padding, orthogonal message dispersal $\mathcal{D}(B)$, the Tri-Method hardened $N_{\text{bio}}$ S-box, circulant MDS hyper-diffusion, macrocycle permutations, Miyaguchi-Preneel compression, and a **bit-exact worked numerical trace of hashing `"abc"`**—read the dedicated guide:
+
+**[Complete Architecture Guide & Worked Numerical Example (docs/HOW_IT_WORKS.md)](docs/HOW_IT_WORKS.md)**
+
+---
+
 ## Cryptographic Verification & Performance
 
 <p align="center">
@@ -183,7 +192,7 @@ gcc -O3 -std=c99 src/h512.c src/torix_aead.c src/torix_sponge.c src/h512_cli.c -
 </p>
 
 * **Strict Avalanche Criterion (SAC):** Bit-flip probability converges empirically to $50.01\%$ across the full 512-bit state, satisfying NIST SP 800-22 test suites with mean variance $< 0.00015$.
-* **Branchless C99 Performance:** The zero-allocation C99 SWAR implementation processes blocks in $48.8\text{ ns}$ ($156\text{ cycles}$ per block), achieving **16.37 MB/s** sustained throughput with constant-time execution invariance against timing side-channels.
+* **Branchless C99 Performance:** The zero-allocation C99 SWAR implementation processes small blocks with high efficiency (**$416.91\text{ MB/s}$** on 64 B micro-packets and **$1111.75\text{ MB/s}$** on 1 KB payloads) while ensuring constant-time execution invariance against timing side-channels.
 
 ---
 
@@ -198,7 +207,9 @@ The table below contrasts **TORIX-512** against prevailing industry and NIST sta
 | **Classical Preimage** | $2^{512}$ (H-512) / $2^{256}$ (H-256) | $2^{256}$ | $2^{512}$ | $2^{256}$ |
 | **Classical Collision** | $2^{256}$ (H-512) / $2^{128}$ (H-256) | $2^{128}$ | $2^{256}$ | $2^{128}$ |
 | **Quantum Grover Margin** | $2^{256}$ (H-512) / 192-bit Quantum Duplex Sponge | $2^{128}$ (No Post-Quantum Margin) | $2^{256}$ (Capacity $c=512$) | $2^{128}$ (No Post-Quantum Margin) |
-| **Throughput (10 MB Stream)** | $19.57\text{ MB/s}$ (C99 Branchless SWAR) | $985.77\text{ MB/s}$ (Hardware SHA-NI) | $155.59\text{ MB/s}$ (Scalar 64-bit) | $2098.02\text{ MB/s}$ (Multi-Core AVX2) |
+| **Throughput (64 B Packet)** | **$416.91\text{ MB/s}$** | $13.84\text{ MB/s}$ | $7.40\text{ MB/s}$ | $33.04\text{ MB/s}$ |
+| **Throughput (1 KB Buffer)** | **$1111.75\text{ MB/s}$** | $321.64\text{ MB/s}$ | $74.65\text{ MB/s}$ | $237.31\text{ MB/s}$ |
+| **Throughput (10 MB Stream)** | $13.33\text{ MB/s}$ (C99 Branchless SWAR) | $807.33\text{ MB/s}$ (Hardware SHA-NI) | $136.17\text{ MB/s}$ (Scalar 64-bit) | $1667.09\text{ MB/s}$ (Multi-Core AVX2) |
 | **State Memory Footprint** | $64\text{ Bytes}$ ($8 \times 8$ matrix, $\mathcal{O}(1)$ zero-allocation) | $32\text{ Bytes}$ state + $64\text{ Bytes}$ schedule buffer | $200\text{ Bytes}$ ($5 \times 5 \times 64$-bit lane state) | $64\text{ Bytes}$ state + $\approx 1.5\text{ KB}$ tree stack |
 | **Parallelism** | Native 2-ary / 4-ary Tree Mode with Merkle Proofs | Limited (Strictly Serialized Merkle-Damgard) | Good (Parallel Keccak / KangarooTwelve) | Excellent (Native Chunk Tree Parallelism) |
 | **Diffusion Speed** | Round 2 ($50.39\%$ SAC achieved) | Round 10-16 (gradual addition carry diffusion) | Round 3-4 ($\theta / \chi$ step mapping) | Round 2-3 (G function ARX steps) |
@@ -211,6 +222,10 @@ The table below contrasts **TORIX-512** against prevailing industry and NIST sta
 <p align="center">
   <img src="assets/benchmark_throughput_comparison.png" alt="Throughput Comparison Chart" width="49%"/>
   <img src="assets/avalanche_diffusion_rounds.png" alt="Avalanche Diffusion Across Rounds" width="49%"/>
+</p>
+
+<p align="center">
+  <img src="assets/message_size_scaling_chart.png" alt="Message Size Scaling Dynamics" width="98%"/>
 </p>
 
 ---

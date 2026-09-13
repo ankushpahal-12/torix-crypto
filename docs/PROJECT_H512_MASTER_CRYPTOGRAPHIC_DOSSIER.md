@@ -19,6 +19,9 @@ The architecture addresses three classical failure modes in hash function design
 2. **Slow Diffusion in Large States:** Neutralized by combining 4-neighbor local cellular coupling with an involutive circulant Maximum Distance Separable (MDS) matrix over $\mathbb{F}_{2^8}$ ($\mathcal{B} = 5$), achieving full state avalanche in 2 rounds.
 3. **Length Extension & Multicollisions:** Neutralized at the envelope layer via a HAIFA cumulative bit-counter and domain separation tags.
 
+> [!NOTE]
+> For a step-by-step walkthrough of the internal state transitions with a complete bit-exact worked numerical example, see [How TORIX-512 Works (docs/HOW_IT_WORKS.md)](HOW_IT_WORKS.md).
+
 ```mermaid
 graph TD
     subgraph Message_Envelope [Layer 1: Framing & Message Ingestion]
