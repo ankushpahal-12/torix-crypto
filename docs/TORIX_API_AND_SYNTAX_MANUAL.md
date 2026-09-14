@@ -29,6 +29,7 @@
    - [TORIX-Sponge Multi-Rate Duplex & XOF](#torix-sponge-multi-rate-duplex--xof)
    - [TORIX-AEAD Authenticated Encryption](#torix-aead-authenticated-encryption)
    - [NIST/FIPS-Style Power-On Self-Test (POST)](#nistfips-style-power-on-self-test-post)
+   - [Keyed Password Protection (Salt + Pepper KDF)](#keyed-password-protection-salt--pepper-kdf)
 4. [Python API Reference Manual](#4-python-api-reference-manual)
    - [Core Hasher (`python/h512.py`)](#core-hasher-pythonh512py)
    - [Tree Hashing & Merkle Inclusion Proofs (`python/h512_modes.py`)](#tree-hashing--merkle-inclusion-proofs-pythonh512_modespy)
@@ -36,6 +37,7 @@
    - [Arbitrary-Length XOF Stream (`h512_xof`)](#arbitrary-length-xof-stream-h512_xof)
    - [AEAD & Duplex Sponge (`torix_aead.py`, `torix_sponge.py`)](#aead--duplex-sponge-torix_aeadpy-torix_spongepy)
    - [NIST/FIPS Power-On Self-Test (`torix.self_test()`, `h512.h512_self_test()`)](#nistfips-power-on-self-test-torixself_test-h512h512_self_test)
+   - [Keyed Password Protection (`torix.hash_password`, `torix.verify_password`)](#keyed-password-protection-with-server-side-pepper-torixhash_password-torixverify_password)
 5. [Compilation, Linking & Integration Guide](#5-compilation-linking--integration-guide)
    - [Building the Executable Engine](#building-the-executable-engine)
    - [Building Shared DLL / Shared Object](#building-shared-dll--shared-object)
@@ -484,6 +486,35 @@ int h512_self_test(void);
 
 ---
 
+### Keyed Password Protection (Salt + Pepper KDF)
+
+#### `torix_hash_password`
+```c
+void torix_hash_password(const char *password,
+                         const uint8_t salt[16],
+                         const char *pepper,
+                         int iterations,
+                         uint8_t out[64]);
+```
+- **`password`**: Null-terminated user plaintext password.
+- **`salt`**: 16-byte cryptographically secure random salt.
+- **`pepper`**: Optional server-side secret key (pass `NULL` or `""` for un-peppered). Stored in an environment variable or HSM, never in the database.
+- **`iterations`**: Number of stretching cycles (recommended: `4096` or higher).
+- **`out`**: 64-byte buffer receiving derived key digest.
+- **Security Guarantee**: Cleanses all temporary concatenated buffers from memory using `h512_cleanse`.
+
+#### `torix_verify_password`
+```c
+int torix_verify_password(const char *password,
+                          const uint8_t salt[16],
+                          const char *pepper,
+                          int iterations,
+                          const uint8_t expected_hash[64]);
+```
+Re-derives the password digest and verifies against `expected_hash` in branchless constant time using `h512_verify_mac`. Returns `1` on match, `0` on mismatch.
+
+---
+
 ## 4. Python API Reference Manual
 
 ### Core Hasher (`python/h512.py`)
@@ -620,6 +651,33 @@ assert h512.h512_self_test() is True
 
 ---
 
+### Keyed Password Protection with Server-Side Pepper (`torix.hash_password`, `torix.verify_password`)
+
+```python
+import os
+import torix
+
+# 1. Load server-side secret key (e.g. from environment or AWS KMS)
+# IMPORTANT: Never commit this key to Git and never store it in the database!
+SERVER_PEPPER = os.environ.get("TORIX_PEPPER", "your-super-secret-pepper-key-2026")
+
+# 2. User Registration / Password Hashing:
+# Generates a random 16-byte salt, binds the server secret, and runs 4,096 iterations.
+stored_record = torix.hash_password("userSecretPassword!2026", pepper=SERVER_PEPPER, iterations=4096)
+# Save stored_record to SQL: "$torix$i=4096$e4b2...$9a8c..."
+# NOTE: The pepper is NEVER stored or leaked in this string!
+
+# 3. User Login / Verification:
+# Verifies in branchless constant time to prevent timing side-channel attacks.
+is_valid = torix.verify_password("userSecretPassword!2026", stored_record, pepper=SERVER_PEPPER)
+if is_valid:
+    print("Authentication successful.")
+else:
+    print("Invalid password or invalid pepper.")
+```
+
+---
+
 ## 5. Compilation, Linking & Integration Guide
 
 ### Building the Executable Engine
@@ -689,4 +747,6 @@ def fast_c_tree_hash(data: bytes, chunk_size: int = 1024) -> bytes:
 | **HKDF Key Derivation** | *(via sponge/hash)* | *(internal protocol)* | `h512_modes.hkdf_h512(...)` |
 | **Constant-Time MAC** | `h512_verify_mac(a, b, len)` | *(internal)* | `h512.constant_time_compare(a, b)` |
 | **FIPS Self-Test (POST)** | `h512_self_test()` | *(Automatic on startup)* | `torix.self_test()` / `h512.h512_self_test()` |
+| **Keyed Password Hash** | `torix_hash_password(...)` | *(internal / SDK)* | `torix.hash_password(pw, pepper=...)` |
+| **Password Verify** | `torix_verify_password(...)` | *(internal / SDK)* | `torix.verify_password(pw, hash, pepper=...)` |
 | **Volatile Cleanse** | `h512_cleanse(ptr, len)` | *(internal)* | *(garbage collected)* |

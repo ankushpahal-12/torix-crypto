@@ -1029,6 +1029,80 @@ int h512_self_test(void) {
     return status;
 }
 
+/* ========================================================================= */
+/* SECTION 8: KEYED PASSWORD HASHING (SALT + PEPPER KDF)                     */
+/* ========================================================================= */
+void torix_hash_password(const char *password,
+                         const uint8_t salt[16],
+                         const char *pepper,
+                         int iterations,
+                         uint8_t out[64]) {
+    if (!password || !salt || iterations <= 0 || !out) return;
+
+    size_t pw_len = strlen(password);
+    size_t pep_len = (pepper && pepper[0] != '\0') ? strlen(pepper) : 0;
+
+    /* Initial payload: salt (16) + "::" (2) + [pepper + "::"] + password (pw_len) */
+    size_t init_len = 16 + 2 + (pep_len ? (pep_len + 2) : 0) + pw_len;
+    uint8_t *init_buf = (uint8_t *)malloc(init_len);
+    if (!init_buf) return;
+
+    memcpy(init_buf, salt, 16);
+    memcpy(init_buf + 16, "::", 2);
+    size_t offset = 18;
+    if (pep_len > 0) {
+        memcpy(init_buf + offset, pepper, pep_len);
+        offset += pep_len;
+        memcpy(init_buf + offset, "::", 2);
+        offset += 2;
+    }
+    memcpy(init_buf + offset, password, pw_len);
+
+    uint8_t current[64];
+    h512_hash(init_buf, init_len, current);
+    h512_cleanse(init_buf, init_len);
+    free(init_buf);
+
+    /* Round payload: current (64) + [pepper] + password (pw_len) */
+    size_t round_extra_len = pep_len + pw_len;
+    size_t round_len = 64 + round_extra_len;
+    uint8_t *round_buf = (uint8_t *)malloc(round_len);
+    if (!round_buf) {
+        h512_cleanse(current, 64);
+        return;
+    }
+
+    if (pep_len > 0) {
+        memcpy(round_buf + 64, pepper, pep_len);
+    }
+    memcpy(round_buf + 64 + pep_len, password, pw_len);
+
+    for (int i = 1; i < iterations; i++) {
+        memcpy(round_buf, current, 64);
+        h512_hash(round_buf, round_len, current);
+    }
+
+    h512_cleanse(round_buf, round_len);
+    free(round_buf);
+
+    memcpy(out, current, 64);
+    h512_cleanse(current, 64);
+}
+
+int torix_verify_password(const char *password,
+                          const uint8_t salt[16],
+                          const char *pepper,
+                          int iterations,
+                          const uint8_t expected_hash[64]) {
+    if (!password || !salt || !expected_hash || iterations <= 0) return 0;
+
+    uint8_t computed[64];
+    torix_hash_password(password, salt, pepper, iterations, computed);
+    int match = h512_verify_mac(computed, expected_hash, 64);
+    h512_cleanse(computed, 64);
+    return match;
+}
+
 #if defined(__GNUC__) || defined(__clang__)
     #pragma GCC pop_options
 #endif

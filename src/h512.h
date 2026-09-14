@@ -148,6 +148,40 @@ int torix_aead_decrypt(const uint8_t key[32],
  */
 int h512_self_test(void);
 
+/* ========================================================================= */
+/* 8. KEYED PASSWORD HASHING (SALT + PEPPER KDF)                             */
+/* ========================================================================= */
+/**
+ * @brief Derives a 64-byte key-stretched password digest with salt and optional pepper.
+ *
+ * @param password Null-terminated password string.
+ * @param salt 16-byte cryptographically secure random salt.
+ * @param pepper Optional null-terminated server-side secret key (pass NULL or "" for un-peppered).
+ * @param iterations Number of stretching iterations (recommended: 4096 or higher).
+ * @param out Output buffer receiving the 64-byte digest.
+ */
+void torix_hash_password(const char *password,
+                         const uint8_t salt[16],
+                         const char *pepper,
+                         int iterations,
+                         uint8_t out[64]);
+
+/**
+ * @brief Verifies a password against an expected 64-byte digest in constant time.
+ *
+ * @param password Null-terminated password string.
+ * @param salt 16-byte salt from the database.
+ * @param pepper Optional server-side secret key.
+ * @param iterations Number of stretching iterations.
+ * @param expected_hash Expected 64-byte hash from the database.
+ * @return 1 if password matches, 0 on mismatch.
+ */
+int torix_verify_password(const char *password,
+                          const uint8_t salt[16],
+                          const char *pepper,
+                          int iterations,
+                          const uint8_t expected_hash[64]);
+
 #ifdef __cplusplus
 }
 #endif
