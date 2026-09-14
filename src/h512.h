@@ -1,6 +1,13 @@
 /**
  * Project H-512 / TORIX-512 Unified Cryptographic Engine Header
  * =============================================================
+ * TORIX: Toroidal Orthogonal Rotational Involutive XOR-Permutation
+ * - T: Toroidal 8x8 discrete 2-torus state geometry
+ * - O: Orthogonal cyclic message dispersal
+ * - R: Rotational 4-neighbor context coupling
+ * - I: Involutive GF(2^8) circulant MDS hyper-diffusion
+ * - X: XOR-Permutation with Miyaguchi-Preneel feedforward
+ *
  * Zero-allocation, high-performance cryptographic primitive suite:
  * - TORIX-512 / TORIX-256 HAIFA Cryptographic Hash Functions
  * - Inter-Chunk 4-Way AVX2 SIMD Vectorization (3+ GB/s Leaf Engine)

@@ -1,6 +1,13 @@
 """
-Project H-512 Reference Implementation (Phase 2 Prototype)
-==========================================================
+Project H-512 / TORIX Reference Implementation
+==============================================
+TORIX: Toroidal Orthogonal Rotational Involutive XOR-Permutation
+- T: Toroidal 8x8 discrete 2-torus state geometry
+- O: Orthogonal cyclic message dispersal
+- R: Rotational 4-neighbor context coupling
+- I: Involutive GF(2^8) circulant MDS hyper-diffusion
+- X: XOR-Permutation with Miyaguchi-Preneel feedforward
+
 Architectural Specifications:
 - 512-bit internal state modeled as an 8x8 matrix of 8-bit octets on a 2D torus.
 - Layer 1: NIST 10*1 padding with 64-bit length and 8-bit domain separation tag.

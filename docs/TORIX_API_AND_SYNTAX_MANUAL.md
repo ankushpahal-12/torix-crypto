@@ -1,7 +1,8 @@
 # TORIX-512 / TORIX Cryptographic Suite: Comprehensive API & Syntax Manual
 **Document Version:** 2.1 (Post-Upgrade A & Step 2 FIPS Certification)  
 **Standard Compliance:** NIST FIPS 140-3 Power-On Self-Test (POST), RFC 5869 (HKDF), HAIFA Counter Framework, BLAKE3 Parallel Tree Topologies, Constant-Time Side-Channel Invariance  
-**Language Interfaces:** C99 / AVX2 Native Engine, Command-Line Interface (CLI), Python Reference & Extended Modes
+**Language Interfaces:** C99 / AVX2 Native Engine, Command-Line Interface (CLI), Python Reference & Extended Modes  
+**Official Designation:** **T.O.R.I.X.** (**T**oroidal **O**rthogonal **R**otational **I**nvolutive **X**OR-Permutation)
 
 ---
 
@@ -53,6 +54,13 @@
 ## 1. Architectural Design, Structure & Core Engine
 
 ### Core Cryptographic Design Philosophy
+**TORIX** is an acronym reflecting its foundational structural and algebraic primitives:
+* **T — Toroidal:** $8 \times 8$ discrete 2-torus state geometry ($\mathbb{T}^2$) with periodic cyclic boundary wrapping.
+* **O — Orthogonal:** Orthogonal row-by-row cyclic message dispersal ($M_{\text{disp}}$).
+* **R — Rotational:** 4-neighbor cyclic rotational context coupling ($\alpha, \beta, \gamma, \delta$).
+* **I — Involutive:** Self-inverting $\mathbb{F}_{2^8}$ circulant MDS hyper-diffusion matrix $\text{circ}(02, 03, 01, 01)$.
+* **X — XOR-Permutation:** Miyaguchi-Preneel $\oplus$ feedforward and cellular round permutations.
+
 TORIX-512 decouples its **immutable mathematical core** from its **high-throughput execution and certification infrastructure**:
 
 ```mermaid

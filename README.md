@@ -26,6 +26,14 @@
 
 ---
 
+### 🌐 Official Designation & Acronym
+> **T.O.R.I.X.** = **T**oroidal **O**rthogonal **R**otational **I**nvolutive **X**OR-Permutation  
+> * **T — Toroidal:** $8 \times 8$ discrete 2-torus state geometry ($\mathbb{T}^2$) with cyclic periodic boundary wrapping.
+> * **O — Orthogonal:** Orthogonal row-by-row cyclic message dispersal ($M_{\text{disp}}$).
+> * **R — Rotational:** 4-neighbor cyclic rotational context coupling ($\alpha, \beta, \gamma, \delta$).
+> * **I — Involutive:** Self-inverting $\mathbb{F}_{2^8}$ circulant MDS hyper-diffusion matrix $\text{circ}(02, 03, 01, 01)$.
+> * **X — XOR-Permutation:** Miyaguchi-Preneel $\oplus$ feedforward and cellular round permutations.
+
 **TORIX-512** is an experimental high-assurance cryptographic suite built upon a **512-bit Toroidal Cellular Permutation Network** on the discrete 2-torus ($8 \times 8$ periodic grid). It provides high-throughput cryptographic hashing, single-pass Authenticated Encryption with Associated Data (AEAD), 4-way AVX2 SIMD parallel Merkle tree hashing, and an arbitrary-length Post-Quantum Duplex Sponge.
 
 ---
