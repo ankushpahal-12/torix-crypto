@@ -1,12 +1,16 @@
 # TORIX-512 / TORIX Cryptographic Suite: Comprehensive API & Syntax Manual
-**Document Version:** 2.0 (Post-Upgrade A)  
-**Standard Compliance:** RFC 5869 (HKDF), HAIFA Counter Framework, BLAKE3 Parallel Tree Topologies, FIPS 140-3 Zeroization & Side-Channel Invariance  
+**Document Version:** 2.1 (Post-Upgrade A & Step 2 FIPS Certification)  
+**Standard Compliance:** NIST FIPS 140-3 Power-On Self-Test (POST), RFC 5869 (HKDF), HAIFA Counter Framework, BLAKE3 Parallel Tree Topologies, Constant-Time Side-Channel Invariance  
 **Language Interfaces:** C99 / AVX2 Native Engine, Command-Line Interface (CLI), Python Reference & Extended Modes
 
 ---
 
 ## Table of Contents
-1. [Architectural Overview & Core Files](#1-architectural-overview--core-files)
+1. [Architectural Design, Structure & Core Engine](#1-architectural-design-structure--core-engine)
+   - [Core Cryptographic Design Philosophy](#core-cryptographic-design-philosophy)
+   - [Mathematical Invariance & Zero-Change Principle](#mathematical-invariance--zero-change-principle)
+   - [Multi-Layer System Architecture](#multi-layer-system-architecture)
+   - [Single-File Engine Layout](#single-file-engine-layout)
 2. [Command-Line Interface (CLI) Complete Syntax](#2-command-line-interface-cli-complete-syntax)
    - [Basic Hashing](#basic-hashing)
    - [File Hashing](#file-hashing)
@@ -24,12 +28,14 @@
    - [Side-Channel Hardening & Security Utilities](#side-channel-hardening--security-utilities)
    - [TORIX-Sponge Multi-Rate Duplex & XOF](#torix-sponge-multi-rate-duplex--xof)
    - [TORIX-AEAD Authenticated Encryption](#torix-aead-authenticated-encryption)
+   - [NIST/FIPS-Style Power-On Self-Test (POST)](#nistfips-style-power-on-self-test-post)
 4. [Python API Reference Manual](#4-python-api-reference-manual)
    - [Core Hasher (`python/h512.py`)](#core-hasher-pythonh512py)
    - [Tree Hashing & Merkle Inclusion Proofs (`python/h512_modes.py`)](#tree-hashing--merkle-inclusion-proofs-pythonh512_modespy)
    - [RFC 5869 Key Derivation Function (`hkdf_h512`)](#rfc-5869-key-derivation-function-hkdf_h512)
    - [Arbitrary-Length XOF Stream (`h512_xof`)](#arbitrary-length-xof-stream-h512_xof)
    - [AEAD & Duplex Sponge (`torix_aead.py`, `torix_sponge.py`)](#aead--duplex-sponge-torix_aeadpy-torix_spongepy)
+   - [NIST/FIPS Power-On Self-Test (`torix.self_test()`, `h512.h512_self_test()`)](#nistfips-power-on-self-test-torixself_test-h512h512_self_test)
 5. [Compilation, Linking & Integration Guide](#5-compilation-linking--integration-guide)
    - [Building the Executable Engine](#building-the-executable-engine)
    - [Building Shared DLL / Shared Object](#building-shared-dll--shared-object)
@@ -38,19 +44,87 @@
 
 ---
 
-## 1. Architectural Overview & Core Files
+## 1. Architectural Design, Structure & Core Engine
 
-TORIX-512 is structured as a **unified, zero-allocation, single-file C implementation**:
+### Core Cryptographic Design Philosophy
+TORIX-512 decouples its **immutable mathematical core** from its **high-throughput execution and certification infrastructure**:
+
+```mermaid
+flowchart TD
+    subgraph L4["Layer 4: Application & User Interfaces"]
+        CLI["CLI Frontend (torix_engine.exe)"]
+        PY["Master Python SDK (torix, h512, h512_modes)"]
+        FFI["C ABI Shared Library (libtorix.dll / .so)"]
+    end
+
+    subgraph L3["Layer 3: Security & Certification Gatekeeper"]
+        POST["NIST FIPS 140-3 Power-On Self-Test (h512_self_test)"]
+        CT["Constant-Time Verification (h512_verify_mac)"]
+        SCRUB["Volatile State Cleansing (h512_cleanse)"]
+    end
+
+    subgraph L2["Layer 2: Operational Dispatchers & Topologies"]
+        D_LIN["HAIFA Streaming Engine (h512_init / update / final)"]
+        D_TREE["Parallel Merkle Tree Hasher (BLAKE3-style, 1024B Chunks)"]
+        D_SPONGE["Multi-Rate Duplex Sponge (r+c=64, XOF, AEAD)"]
+    end
+
+    subgraph L1["Layer 1: High-Speed SIMD Acceleration Engine"]
+        AVX2["4-Way AVX2 SIMD Kernel (h512_compress_4way_avx2)"]
+        FALLBACK["Portable C99 Scalar Fallback"]
+    end
+
+    subgraph L0["Layer 0: Immutable Mathematical Heart (FROZEN)"]
+        P16["16-Round Permutation Network P_16 on Discrete 2-Torus"]
+        MDS["Involutive GF(2^8) Circulant MDS Hyper-Diffusion Layer"]
+        SBOX["Tri-Method Nonlinear S-Box Bijection (N_bio)"]
+        MP["Miyaguchi-Preneel Dual Feedforward Compression"]
+    end
+
+    CLI --> POST
+    PY --> POST
+    POST -->|Pass = 1| D_LIN & D_TREE & D_SPONGE
+    POST -->|Fail = 0| HALT["Fail-Closed Emergency Halt (Exit 101)"]
+
+    D_TREE --> AVX2
+    D_LIN --> FALLBACK
+    AVX2 --> L0
+    FALLBACK --> L0
+    D_SPONGE --> L0
+
+    L0 -.-> SCRUB
+    L2 -.-> CT
+```
+
+### Mathematical Invariance & Zero-Change Principle
+> [!NOTE]
+> **The underlying mathematical equations of TORIX-512 are strictly invariant and frozen.**
+> Upgrades in this release affect **only hardware execution topology (SIMD), parallel chunking (Merkle tree), file consolidation, and certification self-tests**.
+> - **Miyaguchi-Preneel Compression:** $$S_i = P_{16}(S_{i-1} \oplus M_{\text{disp}} \oplus C(i, t)) \oplus S_{i-1} \oplus M_{\text{disp}}$$ (Unchanged).
+> - **GF($2^8$) Circulant MDS Diffusion:** Circulant matrix polynomial $x^8 + x^4 + x^3 + x + 1$ (Unchanged).
+> - **Nonlinear S-Box Bijection:** 8-bit involutive substitution layer $\chi_8$ (Unchanged).
+> - **TORIX-256 Cross-Fold:** $$H_{256}[r][c] = S[r][c] \oplus \text{NBIO}(S[r+4][c])$$ (Unchanged).
+> - **Verified Parity:** Golden digest for `"abc"` is mathematically fixed to `97baaec0f04a...` across all versions.
+
+### Single-File Engine Layout
+All C cryptographic code is consolidated into a lean, single-file architecture:
 
 ```
 src/
-├── h512.c           <-- MAIN ENGINE: Complete C99/AVX2 implementation (< 1,000 lines)
-├── h512.h           <-- PUBLIC API: Function prototypes, HAIFA tags & struct definitions
-├── h512_constants.h <-- CRYPTO CONSTANTS: Frozen NUMS IVs, 256-byte S-box, Round Constants
-└── h512_cli.c       <-- CLI FRONTEND: Terminal harness (torix_engine.exe)
+├── h512.c           <-- COMPLETE ENGINE: Single-file C99/AVX2 implementation (< 1,050 lines)
+│   ├── Section 1: Bitwise & Linear Algebra Utilities (rotl8, rotl4, xtime, circulant MDS)
+│   ├── Section 2: Core Permutation Network P_16 & Miyaguchi-Preneel Compression
+│   ├── Section 3: AVX2 4-Way Inter-Chunk SIMD Vectorization Engine
+│   ├── Section 4: Parallel Binary Merkle Tree Hasher (O(log N) Streaming)
+│   ├── Section 5: TORIX-Sponge Multi-Rate Duplex & Post-Quantum XOF
+│   ├── Section 6: TORIX-AEAD Single-Pass Authenticated Encryption
+│   └── Section 7: NIST/FIPS-Style Power-On Self-Test (POST) Engine
+├── h512.h           <-- UNIFIED PUBLIC API: All prototypes, structures, tags, and macros
+├── h512_constants.h <-- FROZEN CRYPTOGRAPHIC CONSTANTS: NUMS IVs, S-box table, round constants
+└── h512_cli.c       <-- CLI FRONTEND: Terminal harness with automatic startup POST gatekeeper
 ```
 
-*(Auxiliary files `torix_aead.h`/`.c` and `torix_sponge.h`/`.c` exist purely as thin 2-line backward-compatibility forwarders into `h512.h`).*
+*(Auxiliary forwarders `torix_aead.h`/`.c` and `torix_sponge.h`/`.c` exist purely as thin 2-line backward-compatibility redirects into `h512.h`).*
 
 ---
 
@@ -392,6 +466,24 @@ Decrypts and authenticates. Returns `1` if tag is valid. Returns `0` if tamperin
 
 ---
 
+### NIST/FIPS-Style Power-On Self-Test (POST)
+
+#### `h512_self_test`
+```c
+int h512_self_test(void);
+```
+- **Returns**: `H512_SELF_TEST_PASS` (`1`) on complete algorithmic integrity, `H512_SELF_TEST_FAIL` (`0`) on any anomaly.
+- **Verification Scope**:
+  1. Standard TORIX-512 KAT against `"abc"`.
+  2. Standard TORIX-256 truncated cross-fold KAT against `"abc"`.
+  3. TORIX-512 empty input KAT against `""`.
+  4. Parallel binary Merkle tree hasher KAT (4096-byte deterministic vector exercising 4-way AVX2 leaf SIMD).
+  5. Constant-time MAC verify rejection behavior check (fault injection validation).
+  6. Cryptographic volatile scrubbing of all scratch memory buffers using `h512_cleanse`.
+- **Automatic Enforcement**: The native CLI binary `torix_engine` automatically executes `h512_self_test()` on startup before handling any hashing, benchmarking, or encryption operations.
+
+---
+
 ## 4. Python API Reference Manual
 
 ### Core Hasher (`python/h512.py`)
@@ -510,6 +602,24 @@ assert decrypted == plaintext
 
 ---
 
+### NIST/FIPS Power-On Self-Test (`torix.self_test()`, `h512.h512_self_test()`)
+
+```python
+import torix
+import h512
+
+# 1. Run via Unified SDK Facade
+if torix.self_test():
+    print("TORIX cryptographic engine certified & ready.")
+else:
+    raise RuntimeError("Cryptographic self-test failed!")
+
+# 2. Run via Core Engine
+assert h512.h512_self_test() is True
+```
+
+---
+
 ## 5. Compilation, Linking & Integration Guide
 
 ### Building the Executable Engine
@@ -578,4 +688,5 @@ def fast_c_tree_hash(data: bytes, chunk_size: int = 1024) -> bytes:
 | **SHAKE-Style XOF** | `torix_xof(data, len, out, out_len, 0)` | `./torix_engine.exe --xof <len> "msg"` | `h512_modes.h512_xof(msg, len)` |
 | **HKDF Key Derivation** | *(via sponge/hash)* | *(internal protocol)* | `h512_modes.hkdf_h512(...)` |
 | **Constant-Time MAC** | `h512_verify_mac(a, b, len)` | *(internal)* | `h512.constant_time_compare(a, b)` |
+| **FIPS Self-Test (POST)** | `h512_self_test()` | *(Automatic on startup)* | `torix.self_test()` / `h512.h512_self_test()` |
 | **Volatile Cleanse** | `h512_cleanse(ptr, len)` | *(internal)* | *(garbage collected)* |

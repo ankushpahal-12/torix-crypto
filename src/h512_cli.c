@@ -162,6 +162,12 @@ static int hex_to_bytes(const char *hex, uint8_t *out, size_t len) {
 }
 
 int main(int argc, char *argv[]) {
+    /* Formal FIPS 140-3 / NIST CAVP Power-On Self-Test (POST) */
+    if (h512_self_test() != H512_SELF_TEST_PASS) {
+        fprintf(stderr, "FATAL: TORIX-512 Power-On Self-Test (POST) failed! Halting execution.\n");
+        return 101;
+    }
+
     if (argc > 1 && strcmp(argv[1], "--bench") == 0) {
         run_benchmark();
         return 0;

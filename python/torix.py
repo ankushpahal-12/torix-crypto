@@ -205,3 +205,9 @@ def verify_password(password: str, stored_hash_str: str) -> bool:
 
     # Constant-time comparison
     return secrets.compare_digest(current.hex(), expected_hex)
+
+
+# ==============================================================================
+# 5. FIPS 140-3 / NIST POWER-ON SELF-TEST
+# ==============================================================================
+self_test = h512.h512_self_test

@@ -126,6 +126,28 @@ int torix_aead_decrypt(const uint8_t key[32],
                        size_t ad_len,
                        uint8_t *plaintext);
 
+/* ========================================================================= */
+/* 7. NIST/FIPS-STYLE POWER-ON SELF-TEST (POST)                              */
+/* ========================================================================= */
+#define H512_SELF_TEST_PASS 1
+#define H512_SELF_TEST_FAIL 0
+
+/**
+ * @brief Power-On Self-Test (POST) conforming to NIST CAVP / FIPS 140-3 guidelines.
+ *
+ * Verifies:
+ * 1. TORIX-512 standard KAT ("abc")
+ * 2. TORIX-256 standard KAT ("abc")
+ * 3. TORIX-512 empty input KAT ("")
+ * 4. Parallel Binary Tree Hasher KAT (4096-byte deterministic vector)
+ * 5. Constant-time MAC verify rejection behavior (fault injection)
+ *
+ * All scratch buffers are strictly wiped using h512_cleanse.
+ *
+ * @return H512_SELF_TEST_PASS (1) on complete integrity, H512_SELF_TEST_FAIL (0) on any anomaly.
+ */
+int h512_self_test(void);
+
 #ifdef __cplusplus
 }
 #endif

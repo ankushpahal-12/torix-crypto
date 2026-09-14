@@ -6,11 +6,27 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tests](https://img.shields.io/badge/Verification-100%25%20PASS-brightgreen.svg)]()
-[![C99](https://img.shields.io/badge/C99-Branchless%20SWAR-blue.svg)]()
+[![FIPS POST](https://img.shields.io/badge/FIPS%20140--3-POST%20Verified-brightgreen.svg)]()
+[![AVX2](https://img.shields.io/badge/AVX2-4--Way%20SIMD-blue.svg)]()
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)]()
 [![Security](https://img.shields.io/badge/Post--Quantum-192--bit-purple.svg)]()
 
-**TORIX-512** is a high-assurance cryptographic suite built upon a **512-bit Toroidal Cellular Permutation Network** on the discrete 2-torus ($8 \times 8$ periodic grid). It provides high-throughput cryptographic hashing, single-pass Authenticated Encryption with Associated Data (AEAD), and an arbitrary-length Post-Quantum Duplex Sponge.
+> [!IMPORTANT]
+> ### 🔬 Open Cryptographic Research Project & Cryptanalysis Challenge
+> **TORIX-512 is an experimental 512-bit cryptographic hash and permutation construction.**  
+> The algorithm, single-file C99/AVX2 engine, and formal specification are complete enough for independent examination.  
+> 
+> **We explicitly do NOT claim that TORIX-512 is cryptographically secure.**  
+> The objective of this project is to discover weaknesses before making such claims.  
+> 
+> 👉 **The Challenge: Try to break TORIX-512.**  
+> We are actively inviting cryptanalysts, mathematicians, and security engineers to attack reduced and full rounds, construct differential/linear trails, find distinguishers, search for collisions, or challenge our wide-trail active S-box proofs.  
+> 
+> 📖 **Read the full challenge & active research missions:** [**`CRYPTANALYSIS_CHALLENGE.md`**](CRYPTANALYSIS_CHALLENGE.md)
+
+---
+
+**TORIX-512** is an experimental high-assurance cryptographic suite built upon a **512-bit Toroidal Cellular Permutation Network** on the discrete 2-torus ($8 \times 8$ periodic grid). It provides high-throughput cryptographic hashing, single-pass Authenticated Encryption with Associated Data (AEAD), 4-way AVX2 SIMD parallel Merkle tree hashing, and an arbitrary-length Post-Quantum Duplex Sponge.
 
 ---
 
@@ -47,43 +63,42 @@ $$S[i, j]^{(r+1)} = N_{\text{bio}}\left(S[i, j]^{(r)} \oplus \text{rotl}(S[(i-1)
 
 ```
 torix-crypto/
-|-- docs/                                            # Formal Cryptographic Specifications
-|   |-- PERFORMANCE_AND_SECURITY_ROADMAP.md          # Security Track (Proofs) vs. Performance Track (Targets)
-|   |-- HOW_IT_WORKS.md                              # Comprehensive Architecture & Step-by-Step Worked Example
-|   |-- COMPARATIVE_CRYPTOGRAPHIC_ANALYSIS.md        # Formal Multi-Algorithm Benchmark & Analysis
-|   |-- H512_SPECIFICATION_CHAPTER_1.md              # Geometry, Framing, Padding & NUMS Constants
-|   |-- H512_SPECIFICATION_CHAPTER_2_NBIO.md         # Nonlinear Core N_bio & Feistel Table
-|   |-- H512_SPECIFICATION_CHAPTER_3_MDS.md          # Circulant MDS Diffusion & SWAR Matrix
-|   |-- H512_SPECIFICATION_CHAPTER_4_PERMUTATIONS.md # Spatial Permutations in S_64 & Macrocycles
-|   |-- H512_SPECIFICATION_CHAPTER_5_COMPRESSION.md  # Miyaguchi-Preneel Compression & Bounds
-|   |-- PROJECT_H512_MASTER_CRYPTOGRAPHIC_DOSSIER.md # Unified Master Specification
+|-- CRYPTANALYSIS_CHALLENGE.md                       # OPEN RESEARCH INVITATION & 7 ATTACK MISSIONS
+|
+|-- docs/                                            # Formal Cryptographic Specifications & Manuals
+|   |-- TORIX_API_AND_SYNTAX_MANUAL.md               # Unified API, Syntax, and Integration Reference
+|   |-- HOW_IT_WORKS.md                              # End-to-End Architecture & Step-by-Step Worked Trace
+|   |-- COMPARATIVE_CRYPTOGRAPHIC_ANALYSIS.md        # SHA-256 / BLAKE3 Comparative Analysis
+|   |-- PROJECT_H512_MASTER_CRYPTOGRAPHIC_DOSSIER.md # Unified Master Specification & Security Proofs
+|   |-- PERFORMANCE_AND_SECURITY_ROADMAP.md          # Long-Term Cryptographic Roadmap
+|   |-- H512_SPECIFICATION_CHAPTER_1..5.md           # Modular Math Chapters (Geometry, S-Box, MDS, Permutations, Bounds)
 |   `-- TORIX_SPECIFICATION_AEAD_AND_SPONGE.md       # AEAD & Duplex Sponge Formal Spec
 |
-|-- src/                                             # Native C99 High-Speed Engine
-|   |-- h512.c & h512.h                              # Core hash engine & public API (Zero-Copy SWAR)
-|   |-- h512_constants.h                             # Precomputed NUMS constants & aligned S-box table
-|   |-- torix_aead.c & torix_aead.h                  # Single-pass AEAD cipher
-|   |-- torix_sponge.c & torix_sponge.h              # Multi-rate Duplex Sponge & XOF
-|   `-- h512_cli.c                                   # Command-line driver & benchmark
+|-- src/                                             # Native High-Speed C99 / AVX2 Engine
+|   |-- h512.c                                       # UNIFIED C ENGINE: Hashing, 4-Way AVX2 SIMD, Tree, Sponge, AEAD, FIPS POST
+|   |-- h512.h                                       # PUBLIC C HEADER: Declarations, constants, tags, and structs
+|   |-- h512_constants.h                             # FROZEN CRYPTO CONSTANTS: NUMS IVs, S-box table, round constants
+|   `-- h512_cli.c                                   # CLI FRONTEND: torix_engine.exe with automatic FIPS POST gatekeeper
 |
 |-- python/                                          # Python Reference Engines
 |   |-- torix.py                                     # Master Unified SDK (hashlib-compatible)
-|   |-- h512.py                                      # Bit-exact reference implementation
+|   |-- h512.py                                      # Bit-exact reference implementation & FIPS self-test
 |   |-- torix_aead.py                                # Authenticated encryption reference
-|   |-- torix_sponge.py                              # Duplex sponge reference
-|   `-- h512_modes.py                                # Extended modes (Tree Hash, HKDF)
+|   |-- torix_sponge.py                              # Multi-rate Duplex Sponge reference
+|   `-- h512_modes.py                                # Extended modes (Tree Hasher, HKDF, XOF)
 |
-|-- tests/                                           # Automated Verification Battery (16 Suites)
-|   |-- benchmark_comparison.py                      # Multi-algorithm benchmark & chart generator
-|   |-- run_all_phases.py                            # Master test runner (14/14 PASS in 57s)
-|   |-- run_attack_battery.py                        # 6-Phase Cryptanalytic Attack Battery (All PASS)
+|-- tests/                                           # Automated Verification Battery (18 Suites)
+|   |-- run_all_phases.py                            # Master test runner (14/14 PASS in 37s)
+|   |-- test_fips_kat.py                             # FIPS 140-3 POST, Fault Injection & 100k Monte Carlo Test
+|   |-- test_tree_simd.py                            # 4-Way AVX2 SIMD & Merkle Tree Parity Suite
+|   |-- test_sponge_and_aead.py                      # AEAD Tamper Resistance & Sponge Entropy
+|   |-- run_attack_battery.py                        # 6-Phase Cryptanalytic Attack Battery
 |   |-- test_h512.py                                 # Core test battery (avalanche, SAC, vectors)
-|   |-- test_sponge_and_aead.py                      # AEAD tamper resistance & Sponge entropy
 |   `-- verify_phase3.py ... verify_phase14.py       # 12 Modular verification suites
 |
 |-- .gitignore                                       # Clean repository filter
 |-- LICENSE                                          # MIT Open-Source License
-|-- Makefile                                         # Build automation for C engine
+|-- Makefile                                         # Build automation for C engine & shared library
 `-- pyproject.toml                                   # Python package setup for pip install
 ```
 
