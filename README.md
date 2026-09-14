@@ -286,8 +286,27 @@ python tests/run_all_phases.py
 | 14 | `verify_phase14.py` | Welch's t-test timing invariance, volatile memory cleanse | PASS |
 | 15 | `run_attack_battery.py` | 6-Phase Cryptanalytic Battery (Differential, Linear, Biclique, MITM) | PASS |
 | 16 | `test_sponge_and_aead.py`| AEAD round-trip and active 1-bit tamper rejection battery | PASS |
+| 17 | `test_fips_kat.py` | FIPS 140-3 POST, Fault Injection & 100k Monte Carlo Test | PASS |
+| 18 | `test_tree_simd.py` | 4-Way AVX2 SIMD & Merkle Tree Parity Suite | PASS |
+
+---
+
+## Security Advisory: Cryptographic Principles & Usage Guidelines
+
+### 1. General Hashing vs. Password Storage Advisory (OWASP Best Practice)
+* **Intended Application Domain:** TORIX-512 is a high-speed general cryptographic hash and permutation construction intended for message integrity, digital signatures, Merkle tree bulk verification, high-throughput streaming, and single-pass AEAD encryption.
+* **User Password Storage Warning:** Because TORIX-512 is optimized for high computational throughput (with 4-way AVX2 SIMD acceleration), **raw, un-iterated, unsalted hashing of human passwords should NEVER be used in production applications**. Fast general hashes allow attackers with GPUs/ASICs to compute billions of guesses per second if a password database is breached.
+* **Production Recommendation:** For user authentication and credential storage in web applications, we explicitly recommend following **OWASP Password Storage Guidelines**:
+  1. Use dedicated, memory-hard Key Derivation Functions (KDFs) such as **Argon2id** or **bcrypt**, which enforce heavy RAM consumption and prohibit GPU acceleration.
+  2. If using TORIX-512 for password verification, you MUST utilize the built-in iterated KDF in [`python/torix.py`](python/torix.py) (`hash_password(password, iterations=4096)`) which enforces cryptographically secure 16-byte random salts and multi-thousand iterative stretching cycles.
+
+### 2. Kerckhoffs's Principle & Open-Source Security
+* **Mathematical vs. Obscurity Security:** TORIX-512 strictly conforms to **Kerckhoffs's Principle**: the security of the algorithm depends solely on the secrecy of the private key/nonce (for AEAD) or the mathematical irreversibility of the one-way compression function, **never on the secrecy of the source code**.
+* **Zero Backdoors (NUMS Constants):** All constants within TORIX-512 are **Nothing-Up-My-Sleeve (NUMS)** numbers derived transparently from the square roots and cube roots of the first 64 prime numbers ($\sqrt{2}, \sqrt{3}, \dots$), published openly in [`src/h512_constants.h`](src/h512_constants.h).
+* **Public Scrutiny:** Public visibility on GitHub is a feature, not a risk. Open review is the foundation upon which international cryptographic standards (e.g., AES, SHA-3) are established.
 
 ---
 
 ## License
 This project is licensed under the [MIT License](LICENSE).
+
