@@ -1,8 +1,8 @@
 # TORIX Makefile
 CC ?= gcc
-CFLAGS ?= -O3 -std=c99 -Wall -Wextra -pedantic -Isrc
+CFLAGS ?= -O3 -std=c99 -mavx2 -Wall -Wextra -pedantic -Isrc
 
-SRC = src/h512.c src/torix_aead.c src/torix_sponge.c src/h512_cli.c
+SRC = src/h512.c src/h512_cli.c
 TARGET = torix_engine
 
 ifeq ($(OS),Windows_NT)
@@ -21,7 +21,7 @@ $(TARGET): $(SRC)
 	@echo "[BUILD SUCCESS] $(TARGET) compiled successfully."
 
 shared:
-	$(CC) $(CFLAGS) -shared src/h512.c src/torix_aead.c src/torix_sponge.c -o libtorix.dll
+	$(CC) $(CFLAGS) -shared src/h512.c -o libtorix.dll
 
 test:
 	python tests/run_all_phases.py

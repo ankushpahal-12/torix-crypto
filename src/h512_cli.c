@@ -13,8 +13,39 @@
 #include <string.h>
 #include <time.h>
 #include "h512.h"
-#include "torix_aead.h"
-#include "torix_sponge.h"
+
+void run_tree_benchmark(void) {
+    printf("======================================================================\n");
+    printf("     TORIX-512 PARALLEL TREE & 4-WAY AVX2 SIMD BENCHMARK              \n");
+    printf("======================================================================\n");
+    printf("[*] Hardware AVX2 Support : %s\n", h512_has_avx2() ? "DETECTED & ACTIVE (4-Way Vectorized)" : "DISABLED / NOT DETECTED");
+
+    size_t test_sizes[] = { 10 * 1024 * 1024, 50 * 1024 * 1024 };
+    for (int t = 0; t < 2; t++) {
+        size_t sz = test_sizes[t];
+        uint8_t *buf = (uint8_t *)malloc(sz);
+        if (!buf) continue;
+        memset(buf, 0x3C, sz);
+
+        uint8_t tree_digest[64];
+        char hex[129];
+
+        printf("[*] Benchmarking Tree Hash (%zu MB payload, 1024B chunks)...\n", sz / (1024 * 1024));
+        clock_t t0 = clock();
+        h512_tree_hash(buf, sz, 1024, tree_digest);
+        clock_t t1 = clock();
+
+        double sec = (double)(t1 - t0) / CLOCKS_PER_SEC;
+        double mb_s = (sz / (1024.0 * 1024.0)) / (sec > 0.0001 ? sec : 0.0001);
+        h512_to_hex(tree_digest, 64, hex);
+
+        printf("    Root Digest : %.32s...%.16s\n", hex, hex + 112);
+        printf("    Time Elapsed: %.4f seconds\n", sec);
+        printf("    Throughput  : %.2f MB/second\n", mb_s);
+        free(buf);
+    }
+    printf("======================================================================\n\n");
+}
 
 void run_benchmark() {
     printf("======================================================================\n");
@@ -133,6 +164,31 @@ static int hex_to_bytes(const char *hex, uint8_t *out, size_t len) {
 int main(int argc, char *argv[]) {
     if (argc > 1 && strcmp(argv[1], "--bench") == 0) {
         run_benchmark();
+        return 0;
+    }
+
+    if (argc > 1 && strcmp(argv[1], "--bench-tree") == 0) {
+        run_tree_benchmark();
+        return 0;
+    }
+
+    if (argc > 2 && (strcmp(argv[1], "--tree") == 0 || strcmp(argv[1], "-t") == 0)) {
+        const char *arg = argv[2];
+        uint8_t out[64];
+        char hex[129];
+        FILE *fp = fopen(arg, "rb");
+        if (fp) {
+            fclose(fp);
+            int res = h512_tree_hash_file(arg, 1024, out);
+            if (res == 0) {
+                h512_to_hex(out, 64, hex);
+                printf("%s  %s\n", hex, arg);
+                return 0;
+            }
+        }
+        h512_tree_hash(arg, strlen(arg), 1024, out);
+        h512_to_hex(out, 64, hex);
+        printf("%s\n", hex);
         return 0;
     }
 

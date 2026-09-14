@@ -22,3 +22,14 @@ tests/*.bin
 .idea/
 .DS_Store
 Thumbs.db
+
+# Blender temporary renders and backups
+*.blend1
+render_frames/
+
+web/
+python/torix_3d.py
+
+torix_512_scene.blend
+
+tests/
