@@ -1,4 +1,4 @@
-MIT License
+MIT License (with Ethical Research & Testing Covenant)
 
 Copyright (c) 2026 TORIX Cryptographic Contributors
 
@@ -11,6 +11,44 @@ furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
+
+===============================================================================
+ETHICAL USE, RESEARCH, AND TESTING COVENANT
+===============================================================================
+
+1. SCIENTIFIC RESEARCH & TESTING PURPOSE:
+   The Software is provided primarily as an open experimental cryptographic
+   primitive for academic research, peer review, benchmarking, security
+   auditing, formal verification, and ethical cryptanalysis. Users are
+   explicitly authorized and encouraged to test, stress-test, fuzz, simulate,
+   and attempt to break or analyze the construction for scientific evaluation.
+
+2. ETHICAL AND DEFENSIVE APPLICATION:
+   The Software shall be used exclusively for lawful, defensive, academic,
+   educational, and ethical purposes. The Software must NOT be used:
+   a) To design, develop, support, or distribute malicious software, ransomware,
+      trojans, spyware, or cyber weapons;
+   b) In unauthorized attacks, illegal penetration, or unlicensed surveillance
+      against third-party computer systems or networks;
+   c) To violate any applicable international, national, or local privacy,
+      cybersecurity, or human rights laws.
+
+3. RESPONSIBLE DISCLOSURE:
+   Any cryptographic weakness, mathematical distinguisher, collision, preimage,
+   differential/linear anomaly, side-channel leak, or implementation defect
+   discovered through testing or cryptanalysis should be disclosed responsibly
+   and ethically to the project maintainers or published transparently in
+   accordance with responsible disclosure standards.
+
+4. EXPERIMENTAL STATUS & NO MISSION-CRITICAL WARRANTY:
+   THE SOFTWARE IS EXPERIMENTAL AND CURRENTLY SUBJECT TO AN OPEN ACADEMIC
+   CRYPTANALYSIS CHALLENGE. IT IS NOT CERTIFIED FOR MISSION-CRITICAL,
+   LIFE-SAFETY, MILITARY, OR HIGH-VALUE PRODUCTION SYSTEMS WITHOUT INDEPENDENT
+   AUDIT AND VALIDATION.
+
+===============================================================================
+DISCLAIMER OF WARRANTY AND LIMITATION OF LIABILITY
+===============================================================================
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,

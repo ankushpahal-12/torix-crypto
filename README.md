@@ -316,5 +316,5 @@ python tests/run_all_phases.py
 ---
 
 ## License
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT License (with Ethical Research & Testing Covenant)](LICENSE).
 
