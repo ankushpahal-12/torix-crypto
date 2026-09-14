@@ -332,10 +332,12 @@ def round_transform(S: List[List[int]], round_idx: int) -> List[List[int]]:
     return S_out
 
 
+TAG_TURBO_512 = 0x06
+
 # ==============================================================================
 # LAYER 6: FINAL COMPRESSION & FEEDFORWARD
 # ==============================================================================
-def compress_block(S_prev: List[List[int]], block: bytes, cumulative_bits: int) -> List[List[int]]:
+def compress_block(S_prev: List[List[int]], block: bytes, cumulative_bits: int, num_rounds: int = 16) -> List[List[int]]:
     """
     Compresses a single 64-byte message block into the state using Miyaguchi-Preneel feedforward:
     S_next = S_prev ^ S* ^ M_disp
@@ -352,8 +354,8 @@ def compress_block(S_prev: List[List[int]], block: bytes, cumulative_bits: int) 
             if r == c:
                 S[r][c] ^= t_bytes[r]
 
-    # 3. Execute 16 Rounds of Multi-Family Transformation
-    for rnd in range(16):
+    # 3. Execute Rounds of Multi-Family Transformation
+    for rnd in range(num_rounds):
         S = round_transform(S, rnd)
 
     # 4. Miyaguchi-Preneel Feedforward
@@ -376,8 +378,9 @@ class H512Hasher:
     Stateful incremental streaming hasher for Project H-512 (512-bit digest).
     Supports arbitrary chunk sizes with O(1) internal buffer overhead.
     """
-    def __init__(self, domain_tag: int = 0x00):
+    def __init__(self, domain_tag: int = 0x00, num_rounds: int = 16):
         self.domain_tag = domain_tag & 0xFF
+        self.num_rounds = 10 if self.domain_tag == 0x06 else num_rounds
         self.state = [row[:] for row in IV]
         self.buffer = bytearray()
         self.total_bytes = 0
@@ -404,7 +407,7 @@ class H512Hasher:
             self.buffer = self.buffer[64:]
             self.blocks_processed += 1
             cumulative_bits = min(self.blocks_processed * 512, self.total_bytes * 8)
-            self.state = compress_block(self.state, block, cumulative_bits)
+            self.state = compress_block(self.state, block, cumulative_bits, self.num_rounds)
 
         return self
 
@@ -421,7 +424,7 @@ class H512Hasher:
         for i in range(num_final_blocks):
             block = padded_rem[i * 64 : (i + 1) * 64]
             cumulative_bits = bit_len
-            temp_state = compress_block(temp_state, block, cumulative_bits)
+            temp_state = compress_block(temp_state, block, cumulative_bits, self.num_rounds)
 
         if self.domain_tag == 0x01:
             # H-256 Truncated Cross-Fold Mode (32 bytes)
@@ -444,7 +447,7 @@ class H512Hasher:
 
     def copy(self) -> "H512Hasher":
         """Returns a deep clone of the hasher at its current internal state."""
-        clone = H512Hasher(domain_tag=self.domain_tag)
+        clone = H512Hasher(domain_tag=self.domain_tag, num_rounds=self.num_rounds)
         clone.state = [row[:] for row in self.state]
         clone.buffer = bytearray(self.buffer)
         clone.total_bytes = self.total_bytes
@@ -466,6 +469,11 @@ class H256Hasher(H512Hasher):
 def h512_hash(data: Union[bytes, bytearray, str]) -> bytes:
     """One-shot computation of the 512-bit (64-byte) Project H-512 digest."""
     return H512Hasher(domain_tag=0x00).update(data).digest()
+
+
+def h512_turbo_hash(data: Union[bytes, bytearray, str]) -> bytes:
+    """One-shot computation of the 10-round high-speed Turbo-10 digest."""
+    return H512Hasher(domain_tag=TAG_TURBO_512, num_rounds=10).update(data).digest()
 
 
 def h256_hash(data: Union[bytes, bytearray, str]) -> bytes:

@@ -21,7 +21,7 @@ extern "C" {
 #endif
 
 /* ========================================================================= */
-/* 1. DOMAIN SEPARATION CONSTANTS (HAIFA Tags 0x00..0x05)                    */
+/* 1. DOMAIN SEPARATION CONSTANTS (HAIFA Tags 0x00..0x06)                    */
 /* ========================================================================= */
 #define H512_TAG_STANDARD_512  0x00
 #define H512_TAG_TRUNCATED_256 0x01
@@ -29,6 +29,7 @@ extern "C" {
 #define H512_TAG_TREE_INTERNAL  0x03
 #define H512_TAG_TREE_ROOT      0x04
 #define H512_TAG_XOF_STREAM     0x05
+#define H512_TAG_TURBO_512      0x06
 
 #define H512_DEFAULT_CHUNK_SIZE 1024
 
@@ -70,6 +71,7 @@ int  h512_self_test(void);
 
 /* Core Permutation Primitives */
 void h512_permute_p16(uint8_t S[8][8]);
+void h512_permute_p10(uint8_t S[8][8]);
 void h512_permute_p8(uint8_t S[8][8]);
 
 /* ========================================================================= */
@@ -80,10 +82,14 @@ void h512_compress_4way_avx2(uint8_t S[4][8][8], const uint8_t (*blocks)[64], ui
 void h512_hash_leaf_chunks_4way_avx2(const uint8_t *const chunks[4], size_t chunk_len, uint8_t out[4][64]);
 
 /* ========================================================================= */
-/* 4. NATIVE PARALLEL BINARY MERKLE TREE HASHER                              */
+/* 4. NATIVE PARALLEL BINARY MERKLE TREE HASHER & TURBO-10 PROFILE           */
 /* ========================================================================= */
 void h512_tree_hash(const void *data, size_t len, size_t chunk_size, uint8_t out[64]);
 int  h512_tree_hash_file(const char *filepath, size_t chunk_size, uint8_t out[64]);
+
+/* High-Speed Turbo-10 Profile */
+void h512_turbo_hash(const void *data, size_t len, uint8_t out[64]);
+void h512_turbo_tree_hash(const void *data, size_t len, size_t chunk_size, uint8_t out[64]);
 
 /* ========================================================================= */
 /* 5. TORIX-SPONGE MULTI-RATE DUPLEX & XOF                                   */
@@ -181,6 +187,49 @@ int torix_verify_password(const char *password,
                           const char *pepper,
                           int iterations,
                           const uint8_t expected_hash[64]);
+
+/* ========================================================================= */
+/* 9. SEEKABLE STREAMING CONTAINER (.t512 / Bao-style)                       */
+/* ========================================================================= */
+#define T512_MAGIC "T512BAO\x01"
+#define T512_HEADER_SIZE 32
+#define T512_FLAG_STANDARD 0x00
+#define T512_FLAG_TURBO    0x01
+
+#pragma pack(push, 1)
+typedef struct {
+    uint8_t  magic[8];       /* "T512BAO\x01" */
+    uint64_t content_length; /* Little-endian byte count of raw payload */
+    uint32_t chunk_size;     /* Little-endian chunk size (default 1024) */
+    uint32_t flags;          /* 0x00 = Standard 16-round, 0x01 = Turbo-10 */
+    uint8_t  reserved[8];    /* Zero padding */
+} t512_header_t;
+#pragma pack(pop)
+
+/* Calculate exact container size in bytes */
+size_t torix_t512_container_size(uint64_t content_length, uint32_t chunk_size);
+
+/* Calculate root hash from container or raw data */
+void torix_t512_root(const void *data, uint64_t len, uint32_t chunk_size, int is_turbo, uint8_t root_out[64]);
+
+/* Encode raw data into .t512 container buffer */
+int torix_t512_encode(const void *data, uint64_t len, uint32_t chunk_size, int is_turbo,
+                      uint8_t *out_container, size_t out_max_len, size_t *out_container_len);
+
+/* Encode file to .t512 container file */
+int torix_t512_encode_file(const char *input_path, const char *output_t512_path, uint32_t chunk_size, int is_turbo);
+
+/* Verify slice from .t512 container in memory */
+int torix_t512_verify_slice(const uint8_t *container, size_t container_len,
+                            uint64_t offset, size_t length,
+                            const uint8_t expected_root[64],
+                            uint8_t *out_slice);
+
+/* Verify slice from .t512 container file (O(log N) seek and read) */
+int torix_t512_verify_file_slice(const char *t512_path,
+                                 uint64_t offset, size_t length,
+                                 const uint8_t expected_root[64],
+                                 uint8_t *out_slice);
 
 #ifdef __cplusplus
 }

@@ -161,7 +161,7 @@ static void round_transform(const h512_state_t *S_in, h512_state_t *S_out, int r
 }
 
 /* Compression Block Processing (Miyaguchi-Preneel with Zero-Copy Double-Buffering) */
-static void compress_block_c(uint8_t S[8][8], const uint8_t block[64], uint64_t cumulative_bits) {
+static void compress_block_rounds(uint8_t S[8][8], const uint8_t block[64], uint64_t cumulative_bits, int num_rounds) {
 #if defined(__GNUC__) || defined(__clang__)
     __builtin_prefetch(&H512_SBOX[0],   0, 3);
     __builtin_prefetch(&H512_SBOX[64],  0, 3);
@@ -194,7 +194,7 @@ static void compress_block_c(uint8_t S[8][8], const uint8_t block[64], uint64_t 
         }
     }
 
-    for (int rnd = 0; rnd < 16; rnd++) {
+    for (int rnd = 0; rnd < num_rounds; rnd++) {
         round_transform(&state_buf[rnd & 1], &state_buf[(rnd + 1) & 1], rnd);
     }
 
@@ -202,6 +202,10 @@ static void compress_block_c(uint8_t S[8][8], const uint8_t block[64], uint64_t 
     for (int r = 0; r < 8; r++) {
         S_u64[r] = state_buf[0].u64[r] ^ S_prev.u64[r] ^ m_disp_u64[r];
     }
+}
+
+static inline void compress_block_c(uint8_t S[8][8], const uint8_t block[64], uint64_t cumulative_bits) {
+    compress_block_rounds(S, block, cumulative_bits, 16);
 }
 
 /* ========================================================================= */
@@ -226,6 +230,7 @@ void h256_init(h512_ctx *ctx) {
 void h512_update(h512_ctx *ctx, const void *data, size_t len) {
     const uint8_t *ptr = (const uint8_t *)data;
     ctx->total_bytes += len;
+    int rounds = (ctx->domain_tag == H512_TAG_TURBO_512) ? 10 : 16;
 
     while (len > 0) {
         size_t to_copy = 64 - ctx->buffer_len;
@@ -241,7 +246,7 @@ void h512_update(h512_ctx *ctx, const void *data, size_t len) {
             if (cumulative_bits > ctx->total_bytes * 8) {
                 cumulative_bits = ctx->total_bytes * 8;
             }
-            compress_block_c(ctx->state, ctx->buffer, cumulative_bits);
+            compress_block_rounds(ctx->state, ctx->buffer, cumulative_bits, rounds);
             ctx->buffer_len = 0;
         }
     }
@@ -264,9 +269,10 @@ static void finalize_internal(h512_ctx *ctx, uint8_t *out, int is_256) {
         final_blocks[rem + 1 + k + 1 + 7 - i] = (uint8_t)(bit_len >> (i * 8));
     }
 
+    int rounds = (ctx->domain_tag == H512_TAG_TURBO_512) ? 10 : 16;
     size_t num_blocks = pad_total / 64;
     for (size_t i = 0; i < num_blocks; i++) {
-        compress_block_c(ctx->state, final_blocks + i * 64, bit_len);
+        compress_block_rounds(ctx->state, final_blocks + i * 64, bit_len, rounds);
     }
 
     if (is_256) {
@@ -282,6 +288,61 @@ static void finalize_internal(h512_ctx *ctx, uint8_t *out, int is_256) {
             }
         }
     }
+}
+
+static void h512_hash_tag_rounds(const void *data, size_t len, uint8_t domain_tag, int num_rounds, uint8_t out[64]) {
+    h512_ctx ctx;
+    h512_init_tag(&ctx, domain_tag);
+
+    const uint8_t *ptr = (const uint8_t *)data;
+    ctx.total_bytes = len;
+
+    while (len > 0) {
+        size_t to_copy = 64 - ctx.buffer_len;
+        if (len < to_copy) to_copy = len;
+        memcpy(ctx.buffer + ctx.buffer_len, ptr, to_copy);
+        ctx.buffer_len += to_copy;
+        ptr += to_copy;
+        len -= to_copy;
+
+        if (ctx.buffer_len == 64) {
+            ctx.blocks_processed++;
+            uint64_t cumulative_bits = ctx.blocks_processed * 512;
+            if (cumulative_bits > ctx.total_bytes * 8) {
+                cumulative_bits = ctx.total_bytes * 8;
+            }
+            compress_block_rounds(ctx.state, ctx.buffer, cumulative_bits, num_rounds);
+            ctx.buffer_len = 0;
+        }
+    }
+
+    uint64_t bit_len = ctx.total_bytes * 8;
+    size_t rem = ctx.buffer_len;
+    size_t k = (64 - ((rem + 10) % 64)) % 64;
+    size_t pad_total = rem + 1 + k + 1 + 8;
+    uint8_t final_blocks[128];
+    memset(final_blocks, 0, pad_total);
+
+    memcpy(final_blocks, ctx.buffer, rem);
+    final_blocks[rem] = 0x80;
+    final_blocks[rem + 1 + k] = ctx.domain_tag;
+
+    for (int i = 0; i < 8; i++) {
+        final_blocks[rem + 1 + k + 1 + 7 - i] = (uint8_t)(bit_len >> (i * 8));
+    }
+
+    size_t num_blocks = pad_total / 64;
+    for (size_t i = 0; i < num_blocks; i++) {
+        compress_block_rounds(ctx.state, final_blocks + i * 64, bit_len, num_rounds);
+    }
+
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            out[r * 8 + c] = ctx.state[r][c];
+        }
+    }
+    h512_cleanse(&ctx, sizeof(ctx));
+    h512_cleanse(final_blocks, sizeof(final_blocks));
 }
 
 void h512_final(h512_ctx *ctx, uint8_t out[64]) {
@@ -354,6 +415,15 @@ void h512_permute_p16(uint8_t S[8][8]) {
     memcpy(S, state_buf[0].b, 64);
 }
 
+void h512_permute_p10(uint8_t S[8][8]) {
+    h512_state_t state_buf[2];
+    memcpy(state_buf[0].b, S, 64);
+    for (int rnd = 0; rnd < 10; rnd++) {
+        round_transform(&state_buf[rnd & 1], &state_buf[(rnd + 1) & 1], rnd);
+    }
+    memcpy(S, state_buf[0].b, 64);
+}
+
 void h512_permute_p8(uint8_t S[8][8]) {
     h512_state_t state_buf[2];
     memcpy(state_buf[0].b, S, 64);
@@ -418,7 +488,7 @@ static inline __m256i bswap64_avx2(__m256i x) {
     return _mm256_shuffle_epi8(x, mask);
 }
 
-void h512_compress_4way_avx2(uint8_t S[4][8][8], const uint8_t (*blocks)[64], uint64_t cumulative_bits) {
+static void h512_compress_4way_avx2_rounds(uint8_t S[4][8][8], const uint8_t (*blocks)[64], uint64_t cumulative_bits, int num_rounds) {
     h512_state_t S_prev[4];
     for (int k = 0; k < 4; k++) memcpy(S_prev[k].b, S[k], 64);
 
@@ -441,12 +511,10 @@ void h512_compress_4way_avx2(uint8_t S[4][8][8], const uint8_t (*blocks)[64], ui
     for (int r = 0; r < 8; r++) {
         uint64_t w[4];
         for (int k = 0; k < 4; k++) {
-            h512_state_t st;
-            memcpy(st.b, S[k], 64);
             uint8_t row_bytes[8];
-            const uint8_t *md = (const uint8_t *)&m_disp_u64[k][r];
             for (int c = 0; c < 8; c++) {
-                row_bytes[c] = st.b[r][c] ^ md[c];
+                uint8_t m_val = (uint8_t)(m_disp_u64[k][r] >> (c * 8));
+                row_bytes[c] = S[k][r][c] ^ m_val;
                 if (r == c) row_bytes[c] ^= t_bytes[r];
             }
             memcpy(&w[k], row_bytes, 8);
@@ -461,7 +529,7 @@ void h512_compress_4way_avx2(uint8_t S[4][8][8], const uint8_t (*blocks)[64], ui
         {7, 3, 5, 1}
     };
 
-    for (int rnd = 0; rnd < 16; rnd++) {
+    for (int rnd = 0; rnd < num_rounds; rnd++) {
         int cur = rnd & 1;
         int next = (rnd + 1) & 1;
         int fam = rnd & 3;
@@ -561,7 +629,11 @@ void h512_compress_4way_avx2(uint8_t S[4][8][8], const uint8_t (*blocks)[64], ui
     }
 }
 
-void h512_hash_leaf_chunks_4way_avx2(const uint8_t *const chunks[4], size_t chunk_len, uint8_t out[4][64]) {
+void h512_compress_4way_avx2(uint8_t S[4][8][8], const uint8_t (*blocks)[64], uint64_t cumulative_bits) {
+    h512_compress_4way_avx2_rounds(S, blocks, cumulative_bits, 16);
+}
+
+static void h512_hash_leaf_chunks_4way_avx2_rounds(const uint8_t *const chunks[4], size_t chunk_len, uint8_t out[4][64], int num_rounds) {
     uint8_t S[4][8][8];
     for (int k = 0; k < 4; k++) {
         memcpy(S[k], H512_IV, 64);
@@ -574,7 +646,7 @@ void h512_hash_leaf_chunks_4way_avx2(const uint8_t *const chunks[4], size_t chun
             memcpy(blocks[k], chunks[k] + b * 64, 64);
         }
         uint64_t cumulative_bits = (b + 1) * 512;
-        h512_compress_4way_avx2(S, (const uint8_t (*)[64])blocks, cumulative_bits);
+        h512_compress_4way_avx2_rounds(S, (const uint8_t (*)[64])blocks, cumulative_bits, num_rounds);
     }
 
     size_t rem = chunk_len % 64;
@@ -593,7 +665,7 @@ void h512_hash_leaf_chunks_4way_avx2(const uint8_t *const chunks[4], size_t chun
     for (int k = 0; k < 4; k++) {
         memcpy(pad_blocks[k], pad_block, 64);
     }
-    h512_compress_4way_avx2(S, (const uint8_t (*)[64])pad_blocks, bit_len);
+    h512_compress_4way_avx2_rounds(S, (const uint8_t (*)[64])pad_blocks, bit_len, num_rounds);
 
     for (int k = 0; k < 4; k++) {
         for (int r = 0; r < 8; r++) {
@@ -604,14 +676,26 @@ void h512_hash_leaf_chunks_4way_avx2(const uint8_t *const chunks[4], size_t chun
     }
 }
 
+void h512_hash_leaf_chunks_4way_avx2(const uint8_t *const chunks[4], size_t chunk_len, uint8_t out[4][64]) {
+    h512_hash_leaf_chunks_4way_avx2_rounds(chunks, chunk_len, out, 16);
+}
+
 /* ========================================================================= */
-/* SECTION 4: NATIVE PARALLEL BINARY MERKLE TREE HASHER                      */
+/* SECTION 4: NATIVE PARALLEL BINARY MERKLE TREE HASHER & TURBO-10 PROFILE   */
 /* ========================================================================= */
-void h512_tree_hash(const void *data, size_t len, size_t chunk_size, uint8_t out[64]) {
+void h512_turbo_hash(const void *data, size_t len, uint8_t out[64]) {
+    h512_hash_tag_rounds(data, len, H512_TAG_TURBO_512, 10, out);
+}
+
+static void h512_tree_hash_generic(const void *data, size_t len, size_t chunk_size, int num_rounds, uint8_t out[64]) {
     if (chunk_size == 0) chunk_size = H512_DEFAULT_CHUNK_SIZE;
 
     if (len <= chunk_size) {
-        h512_hash_tag(data, len, H512_TAG_STANDARD_512, out);
+        if (num_rounds == 10) {
+            h512_turbo_hash(data, len, out);
+        } else {
+            h512_hash_tag(data, len, H512_TAG_STANDARD_512, out);
+        }
         return;
     }
 
@@ -620,7 +704,7 @@ void h512_tree_hash(const void *data, size_t len, size_t chunk_size, uint8_t out
 
     uint8_t (*nodes)[64] = (uint8_t (*)[64])malloc(num_chunks * 64);
     if (!nodes) {
-        fprintf(stderr, "Error: Memory allocation failed in h512_tree_hash.\n");
+        fprintf(stderr, "Error: Memory allocation failed in tree hash.\n");
         return;
     }
 
@@ -634,7 +718,7 @@ void h512_tree_hash(const void *data, size_t len, size_t chunk_size, uint8_t out
                 chunks[k] = ptr + (idx + k) * chunk_size;
             }
             uint8_t batch_out[4][64];
-            h512_hash_leaf_chunks_4way_avx2(chunks, chunk_size, batch_out);
+            h512_hash_leaf_chunks_4way_avx2_rounds(chunks, chunk_size, batch_out, num_rounds);
             for (int k = 0; k < 4; k++) {
                 memcpy(nodes[idx + k], batch_out[k], 64);
             }
@@ -645,7 +729,7 @@ void h512_tree_hash(const void *data, size_t len, size_t chunk_size, uint8_t out
     while (idx < num_chunks) {
         size_t c_offset = idx * chunk_size;
         size_t c_len = (len - c_offset < chunk_size) ? (len - c_offset) : chunk_size;
-        h512_hash_tag(ptr + c_offset, c_len, H512_TAG_TREE_LEAF, nodes[idx]);
+        h512_hash_tag_rounds(ptr + c_offset, c_len, H512_TAG_TREE_LEAF, num_rounds, nodes[idx]);
         idx++;
     }
 
@@ -657,7 +741,7 @@ void h512_tree_hash(const void *data, size_t len, size_t chunk_size, uint8_t out
                 uint8_t pair[128];
                 memcpy(pair, nodes[i], 64);
                 memcpy(pair + 64, nodes[i + 1], 64);
-                h512_hash_tag(pair, 128, H512_TAG_TREE_INTERNAL, nodes[next_level_count]);
+                h512_hash_tag_rounds(pair, 128, H512_TAG_TREE_INTERNAL, num_rounds, nodes[next_level_count]);
                 next_level_count++;
             } else {
                 if (next_level_count != i) {
@@ -669,9 +753,17 @@ void h512_tree_hash(const void *data, size_t len, size_t chunk_size, uint8_t out
         current_level_count = next_level_count;
     }
 
-    h512_hash_tag(nodes[0], 64, H512_TAG_TREE_ROOT, out);
+    h512_hash_tag_rounds(nodes[0], 64, H512_TAG_TREE_ROOT, num_rounds, out);
     h512_cleanse(nodes, num_chunks * 64);
     free(nodes);
+}
+
+void h512_tree_hash(const void *data, size_t len, size_t chunk_size, uint8_t out[64]) {
+    h512_tree_hash_generic(data, len, chunk_size, 16, out);
+}
+
+void h512_turbo_tree_hash(const void *data, size_t len, size_t chunk_size, uint8_t out[64]) {
+    h512_tree_hash_generic(data, len, chunk_size, 10, out);
 }
 
 int h512_tree_hash_file(const char *filepath, size_t chunk_size, uint8_t out[64]) {
@@ -1101,6 +1193,319 @@ int torix_verify_password(const char *password,
     int match = h512_verify_mac(computed, expected_hash, 64);
     h512_cleanse(computed, 64);
     return match;
+}
+
+/* ========================================================================= */
+/* SECTION 9: SEEKABLE STREAMING CONTAINER (.t512 / Bao-style)               */
+/* ========================================================================= */
+size_t torix_t512_container_size(uint64_t content_length, uint32_t chunk_size) {
+    if (chunk_size == 0) chunk_size = H512_DEFAULT_CHUNK_SIZE;
+    uint64_t num_chunks = (content_length + chunk_size - 1) / chunk_size;
+    if (num_chunks <= 1) {
+        return (size_t)(T512_HEADER_SIZE + content_length);
+    }
+    size_t total_nodes = 0;
+    size_t cur = (size_t)num_chunks;
+    while (1) {
+        total_nodes += cur;
+        if (cur <= 1) break;
+        cur = (cur + 1) / 2;
+    }
+    return (size_t)(T512_HEADER_SIZE + total_nodes * 64 + content_length);
+}
+
+void torix_t512_root(const void *data, uint64_t len, uint32_t chunk_size, int is_turbo, uint8_t root_out[64]) {
+    if (chunk_size == 0) chunk_size = H512_DEFAULT_CHUNK_SIZE;
+    if (is_turbo) {
+        h512_turbo_tree_hash(data, (size_t)len, chunk_size, root_out);
+    } else {
+        h512_tree_hash(data, (size_t)len, chunk_size, root_out);
+    }
+}
+
+int torix_t512_encode(const void *data, uint64_t len, uint32_t chunk_size, int is_turbo,
+                      uint8_t *out_container, size_t out_max_len, size_t *out_container_len) {
+    if (chunk_size == 0) chunk_size = H512_DEFAULT_CHUNK_SIZE;
+    size_t needed = torix_t512_container_size(len, chunk_size);
+    if (out_container_len) *out_container_len = needed;
+    if (!out_container || out_max_len < needed) return -1;
+
+    int num_rounds = is_turbo ? 10 : 16;
+    const uint8_t *ptr = (const uint8_t *)data;
+
+    /* 1. Write Header (32 bytes) */
+    t512_header_t *hdr = (t512_header_t *)out_container;
+    memcpy(hdr->magic, T512_MAGIC, 8);
+    hdr->content_length = len;
+    hdr->chunk_size = chunk_size;
+    hdr->flags = is_turbo ? T512_FLAG_TURBO : T512_FLAG_STANDARD;
+    memset(hdr->reserved, 0, 8);
+
+    size_t num_chunks = (size_t)((len + chunk_size - 1) / chunk_size);
+
+    if (num_chunks <= 1) {
+        if (len > 0 && data) {
+            memcpy(out_container + T512_HEADER_SIZE, data, (size_t)len);
+        }
+        return 0;
+    }
+
+    size_t total_nodes = 0;
+    size_t cur = num_chunks;
+    while (1) {
+        total_nodes += cur;
+        if (cur <= 1) break;
+        cur = (cur + 1) / 2;
+    }
+
+    size_t payload_offset = T512_HEADER_SIZE + total_nodes * 64;
+    if (len > 0 && data) {
+        memcpy(out_container + payload_offset, data, (size_t)len);
+    }
+
+    /* Level 0: Leaf Hashes */
+    uint8_t *level0 = out_container + T512_HEADER_SIZE;
+    int can_avx2 = (h512_has_avx2() && chunk_size == 1024);
+    size_t idx = 0;
+
+    if (can_avx2) {
+        while (idx + 4 <= num_chunks && (idx + 4) * chunk_size <= len) {
+            const uint8_t *chunks[4];
+            for (int k = 0; k < 4; k++) {
+                chunks[k] = ptr + (idx + k) * chunk_size;
+            }
+            uint8_t batch_out[4][64];
+            h512_hash_leaf_chunks_4way_avx2_rounds(chunks, chunk_size, batch_out, num_rounds);
+            for (int k = 0; k < 4; k++) {
+                memcpy(level0 + (idx + k) * 64, batch_out[k], 64);
+            }
+            idx += 4;
+        }
+    }
+
+    while (idx < num_chunks) {
+        size_t c_offset = idx * chunk_size;
+        size_t c_len = (len - c_offset < chunk_size) ? (size_t)(len - c_offset) : chunk_size;
+        h512_hash_tag_rounds(ptr + c_offset, c_len, H512_TAG_TREE_LEAF, num_rounds, level0 + idx * 64);
+        idx++;
+    }
+
+    /* Subsequent Levels */
+    uint8_t *prev_level = level0;
+    size_t prev_count = num_chunks;
+    uint8_t *next_level = level0 + prev_count * 64;
+
+    while (prev_count > 1) {
+        size_t next_count = 0;
+        for (size_t i = 0; i < prev_count; i += 2) {
+            if (i + 1 < prev_count) {
+                uint8_t pair[128];
+                memcpy(pair, prev_level + i * 64, 64);
+                memcpy(pair + 64, prev_level + (i + 1) * 64, 64);
+                h512_hash_tag_rounds(pair, 128, H512_TAG_TREE_INTERNAL, num_rounds, next_level + next_count * 64);
+                next_count++;
+            } else {
+                memcpy(next_level + next_count * 64, prev_level + i * 64, 64);
+                next_count++;
+            }
+        }
+        prev_level = next_level;
+        prev_count = next_count;
+        next_level = prev_level + prev_count * 64;
+    }
+
+    return 0;
+}
+
+int torix_t512_encode_file(const char *input_path, const char *output_t512_path, uint32_t chunk_size, int is_turbo) {
+    if (!input_path || !output_t512_path) return -1;
+    FILE *fp = fopen(input_path, "rb");
+    if (!fp) return -2;
+
+    fseek(fp, 0, SEEK_END);
+    long fsize = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    if (fsize < 0) { fclose(fp); return -3; }
+
+    uint64_t file_len = (uint64_t)fsize;
+    uint8_t *raw_buf = (uint8_t *)malloc(file_len ? (size_t)file_len : 1);
+    if (!raw_buf) { fclose(fp); return -4; }
+
+    if (file_len > 0) {
+        if (fread(raw_buf, 1, (size_t)file_len, fp) != (size_t)file_len) {
+            free(raw_buf);
+            fclose(fp);
+            return -5;
+        }
+    }
+    fclose(fp);
+
+    if (chunk_size == 0) chunk_size = H512_DEFAULT_CHUNK_SIZE;
+    size_t cont_len = torix_t512_container_size(file_len, chunk_size);
+    uint8_t *container = (uint8_t *)malloc(cont_len);
+    if (!container) { free(raw_buf); return -6; }
+
+    int res = torix_t512_encode(raw_buf, file_len, chunk_size, is_turbo, container, cont_len, NULL);
+    free(raw_buf);
+    if (res != 0) { free(container); return res; }
+
+    FILE *out_fp = fopen(output_t512_path, "wb");
+    if (!out_fp) { free(container); return -7; }
+    if (fwrite(container, 1, cont_len, out_fp) != cont_len) {
+        free(container);
+        fclose(out_fp);
+        return -8;
+    }
+    fclose(out_fp);
+    free(container);
+    return 0;
+}
+
+int torix_t512_verify_slice(const uint8_t *container, size_t container_len,
+                            uint64_t offset, size_t length,
+                            const uint8_t expected_root[64],
+                            uint8_t *out_slice) {
+    if (!container || container_len < T512_HEADER_SIZE) return -1;
+    if (memcmp(container, T512_MAGIC, 8) != 0) return -2;
+
+    const t512_header_t *hdr = (const t512_header_t *)container;
+    uint64_t content_length = hdr->content_length;
+    uint32_t chunk_size = hdr->chunk_size ? hdr->chunk_size : H512_DEFAULT_CHUNK_SIZE;
+    int is_turbo = (hdr->flags & T512_FLAG_TURBO) != 0;
+    int num_rounds = is_turbo ? 10 : 16;
+
+    size_t expected_total_size = torix_t512_container_size(content_length, chunk_size);
+    if (container_len < expected_total_size) return -3;
+
+    if (offset + length > content_length) return -4;
+    if (length == 0) return 0;
+    if (!out_slice) return -5;
+
+    size_t num_chunks = (size_t)((content_length + chunk_size - 1) / chunk_size);
+
+    if (num_chunks <= 1) {
+        const uint8_t *payload = container + T512_HEADER_SIZE;
+        uint8_t computed_root[64];
+        if (is_turbo) {
+            h512_turbo_hash(payload, (size_t)content_length, computed_root);
+        } else {
+            h512_hash_tag(payload, (size_t)content_length, H512_TAG_STANDARD_512, computed_root);
+        }
+        if (!h512_verify_mac(computed_root, expected_root, 64)) {
+            h512_cleanse(out_slice, length);
+            return -6;
+        }
+        memcpy(out_slice, payload + offset, length);
+        return 0;
+    }
+
+    size_t level_counts[64];
+    size_t level_offsets[64];
+    size_t num_levels = 0;
+
+    size_t cur_count = num_chunks;
+    size_t cur_offset = T512_HEADER_SIZE;
+    size_t total_nodes = 0;
+
+    while (1) {
+        level_counts[num_levels] = cur_count;
+        level_offsets[num_levels] = cur_offset;
+        num_levels++;
+        total_nodes += cur_count;
+        cur_offset += cur_count * 64;
+        if (cur_count <= 1) break;
+        cur_count = (cur_count + 1) / 2;
+    }
+
+    size_t payload_base = T512_HEADER_SIZE + total_nodes * 64;
+
+    /* Verify top level node against expected_root */
+    const uint8_t *top_node = container + level_offsets[num_levels - 1];
+    uint8_t computed_root[64];
+    h512_hash_tag_rounds(top_node, 64, H512_TAG_TREE_ROOT, num_rounds, computed_root);
+    if (!h512_verify_mac(computed_root, expected_root, 64)) {
+        h512_cleanse(out_slice, length);
+        return -7;
+    }
+
+    /* Verify all chunks covering [offset, offset + length) */
+    size_t first_chunk = (size_t)(offset / chunk_size);
+    size_t last_chunk = (size_t)((offset + length - 1) / chunk_size);
+
+    for (size_t c = first_chunk; c <= last_chunk; c++) {
+        const uint8_t *c_ptr = container + payload_base + c * chunk_size;
+        size_t c_len = (c == num_chunks - 1) ? (size_t)(content_length - c * chunk_size) : chunk_size;
+        uint8_t leaf_hash[64];
+        h512_hash_tag_rounds(c_ptr, c_len, H512_TAG_TREE_LEAF, num_rounds, leaf_hash);
+        const uint8_t *expected_leaf = container + level_offsets[0] + c * 64;
+        if (!h512_verify_mac(leaf_hash, expected_leaf, 64)) {
+            h512_cleanse(out_slice, length);
+            return -8;
+        }
+
+        /* Verify Merkle path to root */
+        size_t idx = c;
+        for (size_t lvl = 0; lvl < num_levels - 1; lvl++) {
+            size_t left_child = (idx % 2 == 0) ? idx : (idx - 1);
+            size_t right_child = left_child + 1;
+            size_t parent_idx = idx / 2;
+            const uint8_t *parent_node = container + level_offsets[lvl + 1] + parent_idx * 64;
+
+            if (right_child < level_counts[lvl]) {
+                const uint8_t *left_hash = container + level_offsets[lvl] + left_child * 64;
+                const uint8_t *right_hash = container + level_offsets[lvl] + right_child * 64;
+                uint8_t pair[128];
+                memcpy(pair, left_hash, 64);
+                memcpy(pair + 64, right_hash, 64);
+                uint8_t computed_parent[64];
+                h512_hash_tag_rounds(pair, 128, H512_TAG_TREE_INTERNAL, num_rounds, computed_parent);
+                if (!h512_verify_mac(computed_parent, parent_node, 64)) {
+                    h512_cleanse(out_slice, length);
+                    return -9;
+                }
+            } else {
+                const uint8_t *promoted_hash = container + level_offsets[lvl] + left_child * 64;
+                if (!h512_verify_mac(promoted_hash, parent_node, 64)) {
+                    h512_cleanse(out_slice, length);
+                    return -9;
+                }
+            }
+            idx = parent_idx;
+        }
+    }
+
+    memcpy(out_slice, container + payload_base + offset, length);
+    return 0;
+}
+
+int torix_t512_verify_file_slice(const char *t512_path,
+                                 uint64_t offset, size_t length,
+                                 const uint8_t expected_root[64],
+                                 uint8_t *out_slice) {
+    if (!t512_path || !expected_root || !out_slice) return -1;
+    FILE *fp = fopen(t512_path, "rb");
+    if (!fp) return -2;
+
+    fseek(fp, 0, SEEK_END);
+    long fsize = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    if (fsize < 0) { fclose(fp); return -3; }
+
+    size_t total_size = (size_t)fsize;
+    uint8_t *file_data = (uint8_t *)malloc(total_size ? total_size : 1);
+    if (!file_data) { fclose(fp); return -4; }
+    if (total_size > 0) {
+        if (fread(file_data, 1, total_size, fp) != total_size) {
+            free(file_data);
+            fclose(fp);
+            return -5;
+        }
+    }
+    fclose(fp);
+
+    int res = torix_t512_verify_slice(file_data, total_size, offset, length, expected_root, out_slice);
+    free(file_data);
+    return res;
 }
 
 #if defined(__GNUC__) || defined(__clang__)

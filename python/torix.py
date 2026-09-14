@@ -53,14 +53,31 @@ def torix256(data: Union[str, bytes] = b"") -> H256Hasher:
     return hasher
 
 
+def turbo512(data: Union[str, bytes] = b"") -> H512Hasher:
+    """
+    Creates a 512-bit TORIX Turbo-10 hash object (high-throughput ephemeral streaming).
+    Executes 10-round permutation (TAG_TURBO_512 = 0x06).
+    """
+    hasher = H512Hasher(domain_tag=0x06, num_rounds=10)
+    if data:
+        hasher.update(data)
+    return hasher
+
+
 # Aliases for instant drop-in replacement of hashlib
 sha512 = torix512
 sha256 = torix256
+turbo = turbo512
 
 
 def hash512(data: Union[str, bytes]) -> str:
     """One-shot 512-bit hex digest of a string or bytes."""
     return torix512(data).hexdigest()
+
+
+def hash_turbo512(data: Union[str, bytes]) -> str:
+    """One-shot 512-bit hex digest using Turbo-10 profile."""
+    return turbo512(data).hexdigest()
 
 
 def hash256(data: Union[str, bytes]) -> str:
@@ -228,3 +245,37 @@ def verify_password(password: str, stored_hash_str: str, pepper: str = "") -> bo
 # 5. FIPS 140-3 / NIST POWER-ON SELF-TEST
 # ==============================================================================
 self_test = h512.h512_self_test
+
+
+# ==============================================================================
+# 6. SEEKABLE STREAMING CONTAINER (.t512 / Bao-style)
+# ==============================================================================
+def encode_t512(data: bytes, chunk_size: int = 1024, is_turbo: bool = False) -> bytes:
+    """
+    Encodes raw data bytes into a self-contained, seekable .t512 streaming container.
+    Container layout: [32-byte Header] [Precomputed Merkle Tree Index] [Raw Payload]
+    """
+    import h512_modes
+    return h512_modes.encode_t512(data, chunk_size=chunk_size, is_turbo=is_turbo)
+
+
+def encode_t512_file(input_path: str, output_path: str, chunk_size: int = 1024, is_turbo: bool = False) -> None:
+    """Encodes a file into a .t512 container file."""
+    import h512_modes
+    h512_modes.encode_t512_file(input_path, output_path, chunk_size=chunk_size, is_turbo=is_turbo)
+
+
+def verify_t512_slice(container: bytes, offset: int, length: int, expected_root: bytes) -> bytes:
+    """
+    Extracts and cryptographically verifies a slice [offset, offset + length) from a .t512 container.
+    Verifies leaf chunk digests and the O(log N) Merkle authentication path to expected_root.
+    Raises ValueError on any tampering or mismatch.
+    """
+    import h512_modes
+    return h512_modes.verify_t512_slice(container, offset, length, expected_root)
+
+
+def verify_t512_file_slice(t512_path: str, offset: int, length: int, expected_root: bytes) -> bytes:
+    """Extracts and verifies a slice from a .t512 container file on disk in O(log N) operations."""
+    import h512_modes
+    return h512_modes.verify_t512_file_slice(t512_path, offset, length, expected_root)

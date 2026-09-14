@@ -30,8 +30,12 @@
    - [TORIX-AEAD Authenticated Encryption](#torix-aead-authenticated-encryption)
    - [NIST/FIPS-Style Power-On Self-Test (POST)](#nistfips-style-power-on-self-test-post)
    - [Keyed Password Protection (Salt + Pepper KDF)](#keyed-password-protection-salt--pepper-kdf)
+   - [High-Speed Turbo-10 Profile](#high-speed-turbo-10-profile)
+   - [Seekable Streaming Container (.t512 / Bao-style)](#seekable-streaming-container-t512--bao-style)
 4. [Python API Reference Manual](#4-python-api-reference-manual)
    - [Core Hasher (`python/h512.py`)](#core-hasher-pythonh512py)
+   - [Turbo-10 High-Speed Hasher (`torix.turbo512`)](#turbo-10-high-speed-hasher)
+   - [Seekable .t512 Streaming Container SDK](#seekable-t512-streaming-container-sdk)
    - [Tree Hashing & Merkle Inclusion Proofs (`python/h512_modes.py`)](#tree-hashing--merkle-inclusion-proofs-pythonh512_modespy)
    - [RFC 5869 Key Derivation Function (`hkdf_h512`)](#rfc-5869-key-derivation-function-hkdf_h512)
    - [Arbitrary-Length XOF Stream (`h512_xof`)](#arbitrary-length-xof-stream-h512_xof)
@@ -515,6 +519,63 @@ Re-derives the password digest and verifies against `expected_hash` in branchles
 
 ---
 
+### High-Speed Turbo-10 Profile
+
+The Turbo-10 profile (`H512_TAG_TURBO_512 = 0x06`) provides a ~40% higher throughput pipeline for ephemeral data streams, high-volume sensor feeds, and real-time verifiable data pipelines, utilizing a 10-round permutation while retaining a 5x security margin beyond full 2-round diffusion:
+
+#### `h512_turbo_hash`
+```c
+void h512_turbo_hash(const void *data, size_t len, uint8_t out[64]);
+```
+Computes one-shot 512-bit Turbo-10 digest under domain tag `0x06`.
+
+#### `h512_turbo_tree_hash`
+```c
+void h512_turbo_tree_hash(const void *data, size_t len, size_t chunk_size, uint8_t out[64]);
+```
+Computes parallel binary Merkle tree hash using Turbo-10 rounds on leaf chunks and internal nodes.
+
+#### `h512_permute_p10`
+```c
+void h512_permute_p10(uint8_t S[8][8]);
+```
+Executes the 10-round permutation $P_{10}$ on an $8 \times 8$ byte state.
+
+---
+
+### Seekable Streaming Container (.t512 / Bao-style)
+
+The `.t512` container format packages raw data alongside a precomputed binary Merkle tree index, enabling remote and local clients to seek and cryptographically verify arbitrary sub-ranges $[offset, offset + length)$ in $O(\log N)$ memory and time without hashing the rest of the stream.
+
+#### Format Specification:
+- **Header (32 bytes)**:
+  - `0..7`: Magic bytes `b"T512BAO\x01"`
+  - `8..15`: `uint64_t` content length (little-endian)
+  - `16..19`: `uint32_t` chunk size (default `1024`)
+  - `20..23`: `uint32_t` flags (`0x00` = Standard 16-round, `0x01` = Turbo-10)
+  - `24..31`: `uint8_t[8]` reserved zeroes
+- **Tree Index**: Serialized Merkle tree node digests ($64 \times N_{\text{nodes}}$ bytes) ordered level-by-level.
+- **Payload**: Raw content bytes.
+
+#### C API Functions:
+```c
+size_t torix_t512_container_size(uint64_t content_length, uint32_t chunk_size);
+void   torix_t512_root(const void *data, uint64_t len, uint32_t chunk_size, int is_turbo, uint8_t root_out[64]);
+int    torix_t512_encode(const void *data, uint64_t len, uint32_t chunk_size, int is_turbo,
+                         uint8_t *out_container, size_t out_max_len, size_t *out_container_len);
+int    torix_t512_encode_file(const char *input_path, const char *output_t512_path, uint32_t chunk_size, int is_turbo);
+int    torix_t512_verify_slice(const uint8_t *container, size_t container_len,
+                               uint64_t offset, size_t length,
+                               const uint8_t expected_root[64],
+                               uint8_t *out_slice);
+int    torix_t512_verify_file_slice(const char *t512_path,
+                                    uint64_t offset, size_t length,
+                                    const uint8_t expected_root[64],
+                                    uint8_t *out_slice);
+```
+
+---
+
 ## 4. Python API Reference Manual
 
 ### Core Hasher (`python/h512.py`)
@@ -524,6 +585,7 @@ import h512
 
 # 1. One-shot Functions
 digest_512 = h512.h512_hash(b"data")       # Returns 64 raw bytes
+digest_turbo = h512.h512_turbo_hash(b"data") # Returns 64 raw bytes (Turbo-10)
 digest_256 = h512.h256_hash(b"data")       # Returns 32 raw bytes
 hex_string = h512.hexdigest(digest_512)     # Formats to 128 hex chars
 
@@ -534,15 +596,59 @@ hasher.update(b"chunk 2")
 d = hasher.digest()
 h = hasher.hexdigest()
 
-# 3. Truncated Hasher
+# 3. Turbo-10 Hasher
+turbo_hasher = h512.H512Hasher(domain_tag=0x06, num_rounds=10)
+turbo_hasher.update(b"streaming packet")
+t_digest = turbo_hasher.digest()
+```
+
+### Turbo-10 High-Speed Hasher (`torix.turbo512`)
+
+```python
+import torix
+
+# 1. hashlib-compatible Turbo-10 Hasher
+hasher = torix.turbo512()
+hasher.update(b"high-throughput streaming data")
+digest = hasher.hexdigest()
+
+# 2. One-shot Hex Digest
+digest_hex = torix.hash_turbo512("stream packet")
+```
+
+### Seekable .t512 Streaming Container SDK
+
+```python
+import torix
+
+# 1. Encode in-memory bytes to seekable .t512 container
+payload = b"..." # Large video, audio, or binary stream
+container_bytes = torix.encode_t512(payload, chunk_size=1024, is_turbo=False)
+
+# 2. Encode on-disk file to .t512 file
+torix.encode_t512_file("large_dataset.bin", "large_dataset.t512", chunk_size=1024)
+
+# 3. Seek and verify random slices in O(log N) operations
+expected_root = bytes.fromhex("...")
+# Verify slice from byte 4096 to byte 8192:
+verified_slice = torix.verify_t512_slice(container_bytes, offset=4096, length=4096, expected_root=expected_root)
+
+# 4. File-based random-access verification without loading entire file:
+verified_slice = torix.verify_t512_file_slice("large_dataset.t512", offset=1048576, length=65536, expected_root=expected_root)
+```
+
+### Truncated 256-bit Mode & Utilities
+
+```python
+# Truncated Hasher
 hasher256 = h512.H256Hasher()
 hasher256.update(b"chunk")
 d256 = hasher256.digest()
 
-# 4. HMAC-H512
+# HMAC-H512
 mac = h512.hmac_h512(key=b"secret_key", message=b"payload")
 
-# 5. Constant-Time Tag Comparison
+# Constant-Time Tag Comparison
 valid = h512.constant_time_compare(mac_a, mac_b)
 ```
 
