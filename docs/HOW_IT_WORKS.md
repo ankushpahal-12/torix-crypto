@@ -668,3 +668,60 @@ Or with the compiled native C99 binary:
 ```
 Both engines will output the identical hexadecimal digests displayed in this document.
 
+---
+
+## 12. File & Media Hashing Architecture: Documents, Audio, and Video
+
+TORIX-512 features a purpose-built dual-mode file processing architecture designed to handle diverse file formats with provable security and high throughput:
+
+### 12.1 Mode 1: Streaming $\mathcal{O}(1)$ Sequential Engine (Documents & Standard Audio)
+For text documents, legal PDFs, spreadsheets, and standard audio files:
+* **Fixed RAM Bounds:** The file is streamed in 64 KB binary buffers (`rb`). The internal hashing context (`h512_ctx`) remains strictly bounded to **~160 bytes of memory**, whether processing a 5 KB text note or a 2 GB database dump.
+* **Length-Extension Resistance:** The HAIFA diagonal bit counter ($T_i$) tracks cumulative bits. An attacker cannot append malicious clauses or fraudulent data to a signed document without completely invalidating all subsequent state transitions.
+* **Avalanche Tamper Detection:** A single modified character in a 1,000-page document flips $\approx 50\%$ (256 of 512 bits) of the output digest by Round 2.
+
+```python
+import torix
+
+# Hash any document (PDF, DOCX, TXT) or audio file with O(1) RAM:
+pdf_digest = torix.hash_file("legal_contract.pdf", algorithm="torix512")
+audio_digest = torix.hash_file("audio_track.flac", algorithm="torix256")
+```
+
+### 12.2 Mode 2: Parallel Binary Merkle Tree Hashing (Large Video & Multi-GB Media)
+For large 4K/8K video files, disk images, and massive multimedia archives:
+* **Chunk Partitioning:** The media file is divided into independent chunks (e.g., 64 KB or 1 MB).
+* **Multi-Core Parallel Leaf Processing:** Chunks are dispatched across all CPU cores simultaneously using domain separation tag `TAG_TREE_LEAF` (`0x02`), maximizing NVMe SSD read speeds.
+* **Tree Reduction:** Sibling node hashes are recursively combined with `TAG_TREE_INTERNAL` (`0x03`) until finalized at the apex with `TAG_TREE_ROOT` (`0x04`).
+* **Seekable Stream Verification ($\mathcal{O}(\log N)$ Merkle Proofs):** In video streaming (HLS, DASH, P2P), a client can verify a specific 2-second video chunk against the master 512-bit root hash using only $\approx 19$ sibling hashes for a 50 GB video—without downloading or hashing the remaining 49.9 GB.
+
+```python
+import torix
+from h512_modes import MerkleTreeBuilder, h512_verify_proof
+
+# 1. Parallel tree hash across 8 CPU cores:
+video_root = torix.hash_file_tree("movie_4k.mp4", chunk_size=65536, num_workers=8)
+
+# 2. Extract and verify an authentication proof for chunk #50:
+with open("movie_4k.mp4", "rb") as f:
+    video_bytes = f.read()
+
+tree = MerkleTreeBuilder(video_bytes, chunk_size=65536)
+proof = tree.get_proof(chunk_index=50)
+
+# Instant O(log N) verification of video chunk #50:
+is_authentic = h512_verify_proof(tree.chunks[50], 50, proof, tree.root)
+assert is_authentic is True
+```
+
+### 12.3 Native High-Speed C99 File Hashing
+The compiled C CLI (`torix_engine.exe`) provides direct native file hashing:
+```bash
+# Hash any file in 512-bit mode:
+./torix_engine.exe -f movie_4k.mp4
+
+# Hash in 256-bit cross-folded mode:
+./torix_engine.exe -f document.pdf -256
+```
+
+

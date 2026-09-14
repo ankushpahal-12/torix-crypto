@@ -104,11 +104,19 @@ print("TORIX-512:", digest512)
 digest256 = torix.sha256("Hello World").hexdigest()
 print("TORIX-256:", digest256)
 
-# Streaming for large files
+# Streaming for large files (O(1) memory)
 hasher = torix.sha512()
 hasher.update(b"chunk 1...")
 hasher.update(b"chunk 2...")
 print("File Digest:", hasher.hexdigest())
+
+# Convenient one-line file hashing (documents, audio, video)
+pdf_digest = torix.hash_file("document.pdf", algorithm="torix512")
+print("PDF Digest:", pdf_digest)
+
+# Parallel Merkle tree hash for multi-GB media files across CPU cores
+video_digest = torix.hash_file_tree("movie_4k.mp4", num_workers=8)
+print("Video Root:", video_digest)
 ```
 
 ### 2. Authenticated Encryption and Decryption (AEAD)
@@ -161,9 +169,14 @@ gcc -O3 -std=c99 src/h512.c src/torix_aead.c src/torix_sponge.c src/h512_cli.c -
 
 ### Commands:
 ```powershell
-# Hashing:
+# String Hashing:
 .\torix_engine.exe "Cryptographic message payload"
 .\torix_engine.exe -256 "Cryptographic message payload"
+
+# File Hashing (Documents, Audio, Video with O(1) Memory):
+.\torix_engine.exe -f document.pdf
+.\torix_engine.exe -f movie_4k.mp4 -256
+
 
 # AEAD Encryption:
 .\torix_engine.exe --encrypt -k <hex_key_32B> -n <hex_nonce_16B> -m "Plaintext" -ad "Header"

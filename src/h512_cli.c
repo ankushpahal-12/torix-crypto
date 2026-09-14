@@ -136,6 +136,44 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    /* File Hashing Mode: -f / --file <filepath> [-256] */
+    if (argc > 2 && (strcmp(argv[1], "-f") == 0 || strcmp(argv[1], "--file") == 0)) {
+        const char *filepath = argv[2];
+        int is_256 = (argc > 3 && strcmp(argv[3], "-256") == 0);
+        FILE *fp = fopen(filepath, "rb");
+        if (!fp) {
+            fprintf(stderr, "Error: Unable to open file '%s'\n", filepath);
+            return 1;
+        }
+        h512_ctx ctx;
+        if (is_256) {
+            h256_init(&ctx);
+        } else {
+            h512_init(&ctx);
+        }
+        uint8_t buffer[65536];
+        size_t bytes_read;
+        while ((bytes_read = fread(buffer, 1, sizeof(buffer), fp)) > 0) {
+            h512_update(&ctx, buffer, bytes_read);
+        }
+        fclose(fp);
+
+        if (is_256) {
+            uint8_t out[32];
+            char hex[65];
+            h256_final(&ctx, out);
+            h512_to_hex(out, 32, hex);
+            printf("%s  %s\n", hex, filepath);
+        } else {
+            uint8_t out[64];
+            char hex[129];
+            h512_final(&ctx, out);
+            h512_to_hex(out, 64, hex);
+            printf("%s  %s\n", hex, filepath);
+        }
+        return 0;
+    }
+
     if (argc > 3 && strcmp(argv[1], "--stream-file") == 0) {
         const char *filepath = argv[2];
         size_t num_bytes = (size_t)atoll(argv[3]);

@@ -68,6 +68,43 @@ def hash256(data: Union[str, bytes]) -> str:
     return torix256(data).hexdigest()
 
 
+def hash_file(
+    filepath: Union[str, os.PathLike],
+    algorithm: str = "torix512",
+    chunk_size: int = 65536,
+) -> str:
+    """
+    Cryptographically hashes any file (documents, audio, video) using constant O(1) memory.
+    Reads binary streams in sequential buffers (default 64 KB).
+
+    Supported algorithms:
+      - 'torix512' / 'sha512': 512-bit canonical digest (128 hex characters)
+      - 'torix256' / 'sha256': 256-bit cross-folded digest (64 hex characters)
+    """
+    hasher = torix256() if algorithm.lower() in ("torix256", "sha256", "h256", "256") else torix512()
+    with open(filepath, "rb") as f:
+        while chunk := f.read(chunk_size):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def hash_file_tree(
+    filepath: Union[str, os.PathLike],
+    chunk_size: int = 65536,
+    num_workers: int = 4,
+) -> str:
+    """
+    Parallel binary Merkle tree hash for large multimedia files (videos, high-res audio).
+    Processes chunks across multiple CPU cores with O(log N) seekable proof capability.
+    """
+    import h512_modes
+    with open(filepath, "rb") as f:
+        data = f.read()
+    hasher = h512_modes.H512TreeHasher(chunk_size=chunk_size, num_workers=num_workers)
+    return hasher.hash(data).hex()
+
+
+
 # ==============================================================================
 # 2. AUTHENTICATED ENCRYPTION & DECRYPTION (AEAD)
 # ==============================================================================
