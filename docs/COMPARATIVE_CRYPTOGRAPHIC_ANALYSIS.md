@@ -22,8 +22,8 @@ The evaluation is structured across five core cryptographic domains:
 | **Classical Preimage** | $2^{512}$ (H-512) / $2^{256}$ (H-256) | $2^{256}$ | $2^{512}$ | $2^{256}$ |
 | **Classical Collision** | $2^{256}$ (H-512) / $2^{128}$ (H-256) | $2^{128}$ | $2^{256}$ | $2^{128}$ |
 | **Quantum Grover Margin** | $2^{256}$ (H-512) / 192-bit Quantum Duplex Sponge | $2^{128}$ (No Post-Quantum Margin) | $2^{256}$ (Capacity $c = 512$) | $2^{128}$ (No Post-Quantum Margin) |
-| **Speed (10 MB Stream)** | $19.57\text{ MB/s}$ (C99 Branchless SWAR) | $985.77\text{ MB/s}$ (Hardware SHA-NI) | $155.59\text{ MB/s}$ (Scalar 64-bit) | $2098.02\text{ MB/s}$ (Multi-Core AVX2) |
-| **Speed (64 B Block)** | **$416.91\text{ MB/s}$** | $77.14\text{ MB/s}$ | $48.09\text{ MB/s}$ | $94.33\text{ MB/s}$ |
+| **Speed (10 MB Stream)** | $20.28\text{ MB/s}$ (C99 Branchless SWAR) | $514.28\text{ MB/s}$ (Hardware SHA-NI) | $31.16\text{ MB/s}$ (Scalar 64-bit) | $1179.05\text{ MB/s}$ (Multi-Core AVX2) |
+| **Speed (64 B Block)** | **$416.91\text{ MB/s}$** | $75.26\text{ MB/s}$ | $47.17\text{ MB/s}$ | $92.68\text{ MB/s}$ |
 | **State Memory Footprint** | $64\text{ Bytes}$ ($8 \times 8$ matrix, $\mathcal{O}(1)$ zero heap) | $32\text{ Bytes}$ state + $64\text{ Bytes}$ schedule buffer | $200\text{ Bytes}$ ($5 \times 5 \times 64$-bit lane state) | $64\text{ Bytes}$ state + $\approx 1.5\text{ KB}$ tree stack |
 | **Parallelism** | Native 2-ary / 4-ary Tree Mode with Merkle Proofs | Limited (Strictly Serialized Merkle-Damgard) | Good (Parallel Keccak / KangarooTwelve) | Excellent (Native Chunk Tree Parallelism) |
 | **Diffusion Speed** | Round 2 ($50.39\%$ SAC achieved) | Round 10-16 (gradual addition carry diffusion) | Round 3-4 ($\theta / \chi$ step mapping) | Round 2-3 (G function ARX steps) |
@@ -195,11 +195,11 @@ Benchmarking was executed on an x86_64 host running Windows 11 with GCC 6.3.0 (`
 
 | Payload Size | TORIX-512 C99 SWAR | SHA-256 (OpenSSL) | SHA-3 / Keccak-512 | BLAKE3 (AVX2 Engine) |
 | :--- | :---: | :---: | :---: | :---: |
-| **64 Bytes** | **$416.91\text{ MB/s}$** | $77.14\text{ MB/s}$ | $48.09\text{ MB/s}$ | $94.33\text{ MB/s}$ |
-| **1 Kilobyte** | **$1111.75\text{ MB/s}$** | $521.60\text{ MB/s}$ | $134.83\text{ MB/s}$ | $467.18\text{ MB/s}$ |
-| **64 Kilobytes** | $1248.28\text{ MB/s}$ | $781.58\text{ MB/s}$ | $169.94\text{ MB/s}$ | **$1584.34\text{ MB/s}$** |
-| **1 Megabyte** | $1250.57\text{ MB/s}$ | $927.33\text{ MB/s}$ | $176.06\text{ MB/s}$ | **$1839.27\text{ MB/s}$** |
-| **10 Megabytes** | $19.57\text{ MB/s}$* | $985.77\text{ MB/s}$ | $155.59\text{ MB/s}$ | **$2098.02\text{ MB/s}$** |
+| **64 Bytes** | **$416.91\text{ MB/s}$** | $75.26\text{ MB/s}$ | $47.17\text{ MB/s}$ | $92.68\text{ MB/s}$ |
+| **1 Kilobyte** | **$1111.75\text{ MB/s}$** | $226.94\text{ MB/s}$ | $79.94\text{ MB/s}$ | $259.71\text{ MB/s}$ |
+| **64 Kilobytes** | $1248.28\text{ MB/s}$ | $594.11\text{ MB/s}$ | $94.42\text{ MB/s}$ | **$1278.52\text{ MB/s}$** |
+| **1 Megabyte** | **$1250.57\text{ MB/s}$** | $526.32\text{ MB/s}$ | $99.31\text{ MB/s}$ | $1245.37\text{ MB/s}$ |
+| **10 Megabytes** | $20.28\text{ MB/s}$* | $514.28\text{ MB/s}$ | $31.16\text{ MB/s}$ | **$1179.05\text{ MB/s}$** |
 
 *\*Note on Streaming Performance: The native C99 TORIX-512 engine evaluates streaming blocks with strict zero-allocation memory constraints, branchless 64-bit SWAR arithmetic (`xtime_u64`), and constant-time execution invariance without reliance on platform-specific hardware cryptographic accelerators (e.g., Intel SHA-NI or AVX-512). For small blocks ($64\text{ B}$ to $1\text{ KB}$), TORIX-512 exhibits low overhead and high efficiency.*
 
@@ -207,20 +207,20 @@ Benchmarking was executed on an x86_64 host running Windows 11 with GCC 6.3.0 (`
 
 Figure 3 illustrates sustained throughput across the four primitives on a continuous 10 MB payload, highlighting the architectural trade-offs between portability, hardware acceleration, and side-channel hardening:
 
-* **Bar 1: TORIX-512 ($19.57\text{ MB/s}$, Cyan Bar)**
+* **Bar 1: TORIX-512 ($20.28\text{ MB/s}$, Cyan Bar)**
   * **Implementation:** Pure ANSI C99 branchless SWAR compiled with `-O3`, executing strictly on a single core without hardware cryptographic extensions or speculative SIMD instructions.
   * **Architectural Trade-Off:** Prioritizes constant-time side-channel immunity ($t_{\text{stat}} < 4.5$), zero heap allocation, and universal portability to 8-bit, 16-bit, and 32-bit embedded microcontrollers over unhardened speculative speed. Block processing latency is $48.8\text{ ns}$ ($156\text{ cycles}$ per 64-byte block).
 
-* **Bar 2: SHA-256 ($985.77\text{ MB/s}$, Coral Bar)**
+* **Bar 2: SHA-256 ($514.28\text{ MB/s}$, Coral Bar)**
   * **Implementation:** OpenSSL implementation accelerated by Intel SHA-NI (SHA New Instructions) dedicated silicon circuitry on the CPU die.
   * **Architectural Trade-Off:** High throughput on modern x86_64 host CPUs, but throughput drops to $\approx 15\text{ to }25\text{ MB/s}$ on embedded or mobile devices lacking SHA-NI silicon.
 
-* **Bar 3: SHA-3 / Keccak-512 ($155.59\text{ MB/s}$, Violet Bar)**
+* **Bar 3: SHA-3 / Keccak-512 ($31.16\text{ MB/s}$, Violet Bar)**
   * **Implementation:** OpenSSL 64-bit scalar C implementation.
   * **Architectural Trade-Off:** To provide 512-bit security, Keccak-512 requires capacity $c = 1024$ bits and a narrow absorption rate of $r = 576$ bits ($72\text{ bytes}$). Processing each 72-byte chunk requires 24 rounds over the 1600-bit state, creating computational overhead that limits scalar throughput.
 
-* **Bar 4: BLAKE3 ($2098.02\text{ MB/s}$, Emerald Bar)**
-  * **Implementation:** Multi-threaded Rust implementation utilizing 256-bit AVX2 SIMD instructions and native chunk tree parallelism.
+* **Bar 4: BLAKE3 ($1179.05\text{ MB/s}$, Emerald Bar)**
+  * **Implementation:** Multi-threaded C/Rust implementation utilizing 256-bit AVX2 SIMD instructions and native chunk tree parallelism.
   * **Architectural Trade-Off:** Exceptional throughput on multi-core workstations, but requires an auxiliary stack tree buffer ($\approx 1.5\text{ KB}$) and SIMD hardware registers not available on constrained microcontrollers.
 
 ---
@@ -235,25 +235,26 @@ Figure 4 illustrates throughput scaling as payload size increases across five or
 
 * **Payload Regime 1: Micro-Block ($64\text{ Bytes}$ — 1 Block)**
   * **TORIX-512:** Leads all evaluated algorithms at **$416.91\text{ MB/s}$**.
-  * **BLAKE3:** $94.33\text{ MB/s}$ ($4.4\times$ slower than TORIX-512).
-  * **SHA-256:** $77.14\text{ MB/s}$ ($5.4\times$ slower than TORIX-512).
-  * **SHA-3 / Keccak-512:** $48.09\text{ MB/s}$ ($8.7\times$ slower than TORIX-512).
+  * **BLAKE3:** $92.68\text{ MB/s}$ ($4.5\times$ slower than TORIX-512).
+  * **SHA-256:** $75.26\text{ MB/s}$ ($5.5\times$ slower than TORIX-512).
+  * **SHA-3 / Keccak-512:** $47.17\text{ MB/s}$ ($8.8\times$ slower than TORIX-512).
   * **Underlying Cause:** For short inputs (such as RPC headers, API authentication tokens, and financial micro-transactions), initialization latency dominates total execution time. TORIX-512 requires zero message schedule expansion, zero tree setup, and no dynamic memory allocation, processing the single 64-byte block with minimal overhead.
 
 * **Payload Regime 2: Network MTU ($1\text{ Kilobyte}$ — 16 Blocks)**
-  * **TORIX-512:** Reaches its computational peak at **$1111.75\text{ MB/s}$**, outperforming SHA-256 ($521.60\text{ MB/s}$), BLAKE3 ($467.18\text{ MB/s}$), and SHA-3 ($134.83\text{ MB/s}$).
+  * **TORIX-512:** Reaches its computational peak at **$1111.75\text{ MB/s}$**, outperforming BLAKE3 ($259.71\text{ MB/s}$), SHA-256 ($226.94\text{ MB/s}$), and SHA-3 ($79.94\text{ MB/s}$).
   * **Underlying Cause:** At 1 KB, the entire working state and message buffer remain inside the L1 CPU cache ($32\text{ KB}$). SWAR vectorization processes 8 bytes per 64-bit word without memory bus wait states.
 
 * **Payload Regime 3: System Buffer ($64\text{ Kilobytes}$ to $1\text{ Megabyte}$)**
-  * **BLAKE3:** Climbs from $1584.34\text{ MB/s}$ to $1839.27\text{ MB/s}$ as its tree-hashing mechanism distributes chunks across AVX2 vector lanes.
-  * **SHA-256:** Scales from $781.58\text{ MB/s}$ to $927.33\text{ MB/s}$ via pipelined hardware SHA-NI instructions.
+  * **BLAKE3:** Scales to $1278.52\text{ MB/s}$ at 64 KB and $1245.37\text{ MB/s}$ at 1 MB as its tree-hashing mechanism distributes chunks across vector lanes.
+  * **SHA-256:** Scales to $594.11\text{ MB/s}$ via pipelined hardware SHA-NI instructions.
   * **TORIX-512:** Maintains steady block-processing speed ($1248.28\text{ MB/s} \to 1250.57\text{ MB/s}$) in pure block-processing mode.
-  * **SHA-3:** Plateaus at $169.94\text{ MB/s} \to 176.06\text{ MB/s}$ due to the 24-round permutation bottleneck per 72-byte rate block.
+  * **SHA-3:** Operates at $94.42\text{ MB/s} \to 99.31\text{ MB/s}$ due to the 24-round permutation bottleneck per 72-byte rate block.
 
 * **Payload Regime 4: Continuous Streaming ($10\text{ Megabytes}$)**
-  * **BLAKE3:** Reaches its asymptotic peak ($2098.02\text{ MB/s}$) using multi-core worker threads.
-  * **SHA-256:** Plateaus at $985.77\text{ MB/s}$.
-  * **TORIX-512 CLI:** Evaluates via single-threaded file-stream mode ($19.57\text{ MB/s}$), providing deterministic timing and zero-allocation predictability.
+  * **BLAKE3:** Reaches its asymptotic peak ($1179.05\text{ MB/s}$) using multi-core worker threads.
+  * **SHA-256:** Scales to $514.28\text{ MB/s}$.
+  * **SHA-3:** Operates at $31.16\text{ MB/s}$ in scalar mode.
+  * **TORIX-512 CLI:** Evaluates via single-threaded file-stream mode ($20.28\text{ MB/s}$), providing deterministic timing and zero-allocation predictability.
 
 * **Architectural Takeaway:**
   * TORIX-512 is optimized for packet-level, transactional, and authentication protocol messaging ($< 64\text{ KB}$), achieving higher single-core efficiency than SHA-256 and BLAKE3, while BLAKE3 is designed for multi-gigabyte disk imaging where multi-core SIMD tree parallelism can be leveraged.

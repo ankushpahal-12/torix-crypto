@@ -240,37 +240,11 @@ For a complete, comprehensive mathematical and algorithmic walkthrough of every 
 
 ---
 
-## Comparative Cryptographic Benchmark
+## Comparative Cryptographic Benchmark & Empirical Analysis
 
-The table below contrasts **TORIX-512** against prevailing industry and NIST standard hash primitives: **SHA-256**, **SHA-3 / Keccak-512**, and **BLAKE3**. Detailed mathematical derivations, active S-box bounds, and scaling curves are documented in the [Comparative Cryptographic Analysis](docs/COMPARATIVE_CRYPTOGRAPHIC_ANALYSIS.md).
+For comprehensive empirical benchmark comparisons against **SHA-256**, **SHA-3 / Keccak-512**, and **BLAKE3**—including the 6-axis architectural radar decomposition, round-by-round SAC diffusion curves, multi-megabyte payload throughput benchmarks, message size scaling dynamics, and in-depth silicon trade-off analysis—consult the dedicated technical dossier:
 
-| Property | Our Hash (TORIX-512) | SHA-256 | SHA-3 (Keccak-512) | BLAKE3 |
-| :--- | :--- | :--- | :--- | :--- |
-| **Digest Size** | 512 bits (native) / 256 bits (cross-folded) / Arbitrary XOF | 256 bits (fixed) | Variable (224, 256, 384, 512 bits / SHAKE XOF) | 256 bits (default) / Arbitrary XOF |
-| **Security Foundation** | Toroidal Cellular Permutation ($P_{\text{diff}} \le 2^{-2720.0}$) | Merkle-Damgard ARX (Vulnerable to Length-Extension) | Duplex Sponge Construction (NIST FIPS 202) | Bao Tree Permutation Network |
-| **Classical Preimage** | $2^{512}$ (H-512) / $2^{256}$ (H-256) | $2^{256}$ | $2^{512}$ | $2^{256}$ |
-| **Classical Collision** | $2^{256}$ (H-512) / $2^{128}$ (H-256) | $2^{128}$ | $2^{256}$ | $2^{128}$ |
-| **Quantum Grover Margin** | $2^{256}$ (H-512) / 192-bit Quantum Duplex Sponge | $2^{128}$ (No Post-Quantum Margin) | $2^{256}$ (Capacity $c=512$) | $2^{128}$ (No Post-Quantum Margin) |
-| **Throughput (64 B Packet)** | **$416.91\text{ MB/s}$** | $13.84\text{ MB/s}$ | $7.40\text{ MB/s}$ | $33.04\text{ MB/s}$ |
-| **Throughput (1 KB Buffer)** | **$1111.75\text{ MB/s}$** | $321.64\text{ MB/s}$ | $74.65\text{ MB/s}$ | $237.31\text{ MB/s}$ |
-| **Throughput (10 MB Stream)** | $13.33\text{ MB/s}$ (C99 Branchless SWAR) | $807.33\text{ MB/s}$ (Hardware SHA-NI) | $136.17\text{ MB/s}$ (Scalar 64-bit) | $1667.09\text{ MB/s}$ (Multi-Core AVX2) |
-| **State Memory Footprint** | $64\text{ Bytes}$ ($8 \times 8$ matrix, $\mathcal{O}(1)$ zero-allocation) | $32\text{ Bytes}$ state + $64\text{ Bytes}$ schedule buffer | $200\text{ Bytes}$ ($5 \times 5 \times 64$-bit lane state) | $64\text{ Bytes}$ state + $\approx 1.5\text{ KB}$ tree stack |
-| **Parallelism** | Native 2-ary / 4-ary Tree Mode with Merkle Proofs | Limited (Strictly Serialized Merkle-Damgard) | Good (Parallel Keccak / KangarooTwelve) | Excellent (Native Chunk Tree Parallelism) |
-| **Diffusion Speed** | Round 2 ($50.39\%$ SAC achieved) | Round 10-16 (gradual addition carry diffusion) | Round 3-4 ($\theta / \chi$ step mapping) | Round 2-3 (G function ARX steps) |
-| **Side-Channel Hardening** | Branchless SWAR (Zero Data-Dependent Branches) | Addition carry chains (potential power analysis) | Bitwise logic (highly timing invariant) | Constant-time rotation logic |
-
-<p align="center">
-  <img src="assets/cryptographic_spider_comparison.png" alt="Multi-Dimensional Cryptographic Architecture Radar" width="85%"/>
-</p>
-
-<p align="center">
-  <img src="assets/benchmark_throughput_comparison.png" alt="Throughput Comparison Chart" width="49%"/>
-  <img src="assets/avalanche_diffusion_rounds.png" alt="Avalanche Diffusion Across Rounds" width="49%"/>
-</p>
-
-<p align="center">
-  <img src="assets/message_size_scaling_chart.png" alt="Message Size Scaling Dynamics" width="98%"/>
-</p>
+**[Complete Comparative Cryptographic Analysis & Performance Matrix (docs/COMPARATIVE_CRYPTOGRAPHIC_ANALYSIS.md)](docs/COMPARATIVE_CRYPTOGRAPHIC_ANALYSIS.md)**
 
 ---
 
