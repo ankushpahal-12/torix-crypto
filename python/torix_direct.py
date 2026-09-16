@@ -31,6 +31,7 @@ from h512 import (
     IV,
     compress_block,
     TAG_TURBO_512,
+    TAG_KEYED_MAC,
     h512_hash,
     h512_turbo_hash,
     constant_time_compare,
@@ -429,15 +430,16 @@ class TorixFrameGuard:
         stream_id: int = 1,
         is_turbo: bool = True,
         enable_anti_replay: bool = True,
+        mac_mode: str = "single_pass",
     ):
         if not key:
             raise ValueError("Key must be non-empty")
         self.key = bytes(key)
         self.stream_id = stream_id & 0xFFFF
         self.is_turbo = is_turbo
+        self.mac_mode = mac_mode.lower()
         self.replay_window = AntiReplayWindow() if enable_anti_replay else None
 
-        # Precompute Inner (S_ipad) and Outer (S_opad) Key Contexts once per session
         domain_tag = TAG_TURBO_512 if self.is_turbo else 0x00
         num_rounds = 10 if self.is_turbo else 16
         hasher_fn = h512_turbo_hash if self.is_turbo else h512_hash
@@ -448,35 +450,48 @@ class TorixFrameGuard:
         if len(k_bytes) < 64:
             k_bytes = k_bytes + (b"\x00" * (64 - len(k_bytes)))
 
-        ipad = bytes([k ^ 0x36 for k in k_bytes])
-        opad = bytes([k ^ 0x5C for k in k_bytes])
+        if self.mac_mode == "single_pass":
+            # Breakthrough 1: Single-Pass Keyed MAC Mode (BLAKE3 / KMAC style absorption)
+            # S_0 is initialized by absorbing the 64-byte symmetric key K under TAG_KEYED_MAC.
+            # Eliminates outer Merkle-Damgard pass, cutting cryptographic compression in half.
+            self._keyed_context = H512Hasher(domain_tag=TAG_KEYED_MAC, num_rounds=num_rounds)
+            self._keyed_context.update(k_bytes)
+        else:
+            # Precompute Inner (S_ipad) and Outer (S_opad) Key Contexts once per session (RFC 2104 HMAC)
+            ipad = bytes([k ^ 0x36 for k in k_bytes])
+            opad = bytes([k ^ 0x5C for k in k_bytes])
 
-        # S_ipad: pre-absorb the 64-byte K ^ ipad block
-        self._inner_context = H512Hasher(domain_tag=domain_tag, num_rounds=num_rounds)
-        self._inner_context.update(ipad)
+            # S_ipad: pre-absorb the 64-byte K ^ ipad block
+            self._inner_context = H512Hasher(domain_tag=domain_tag, num_rounds=num_rounds)
+            self._inner_context.update(ipad)
 
-        # S_opad: pre-absorb the 64-byte K ^ opad block
-        self._outer_context = H512Hasher(domain_tag=domain_tag, num_rounds=num_rounds)
-        self._outer_context.update(opad)
+            # S_opad: pre-absorb the 64-byte K ^ opad block
+            self._outer_context = H512Hasher(domain_tag=domain_tag, num_rounds=num_rounds)
+            self._outer_context.update(opad)
 
     def compute_mac(self, data: Union[bytes, bytearray, memoryview]) -> bytes:
         """
-        Computes 16-byte (128-bit) TORIX Tag using precomputed S_ipad and S_opad.
-        Mathematically 100% bit-exact with RFC 2104 HMAC, but eliminates
-        2 full 64-byte block compressions per packet!
+        Computes 16-byte (128-bit) TORIX Tag.
+        In "single_pass" mode: clones pre-keyed state and absorbs data in 1 single pass.
+        In "hmac" mode: executes precomputed RFC 2104 inner and outer passes.
         """
-        # Inner pass: clone S_ipad context and absorb data
         data_bytes = bytes(data)
-        h_in = self._inner_context.copy()
-        h_in.update(data_bytes)
-        inner_digest = h_in.digest()
+        if self.mac_mode == "single_pass":
+            h = self._keyed_context.copy()
+            h.update(data_bytes)
+            return h.digest()[:16]
+        else:
+            # Inner pass: clone S_ipad context and absorb data
+            h_in = self._inner_context.copy()
+            h_in.update(data_bytes)
+            inner_digest = h_in.digest()
 
-        # Outer pass: clone S_opad context and absorb inner digest
-        h_out = self._outer_context.copy()
-        h_out.update(inner_digest)
-        outer_digest = h_out.digest()
+            # Outer pass: clone S_opad context and absorb inner digest
+            h_out = self._outer_context.copy()
+            h_out.update(inner_digest)
+            outer_digest = h_out.digest()
 
-        return outer_digest[:16]
+            return outer_digest[:16]
 
     def pack_frame(
         self,
@@ -542,6 +557,7 @@ class TorixFrameGuard:
             "payload_len": None,
             "claimed_checksum": None,
             "profile": "Turbo-10" if self.is_turbo else "Standard-16",
+            "mac_mode": self.mac_mode,
         }
 
         # Stage 1: Struct & Bounds Check

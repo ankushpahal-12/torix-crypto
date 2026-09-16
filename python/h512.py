@@ -340,6 +340,7 @@ def round_transform(S: List[List[int]], round_idx: int) -> List[List[int]]:
 
 
 TAG_TURBO_512 = 0x06
+TAG_KEYED_MAC = 0x07
 
 # ==============================================================================
 # LAYER 6: FINAL COMPRESSION & FEEDFORWARD

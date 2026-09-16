@@ -537,13 +537,14 @@ def pack_frame(
     stream_id: int = 1,
     aad: bytes = b"",
     is_turbo: bool = True,
+    mac_mode: str = "single_pass",
 ) -> bytes:
     """
     Encapsulates arbitrary payload into an authenticated line-rate wire frame (TORIX-FrameGuard):
     Header (16B) || Payload (NB) || Tag (16B).
     """
     import torix_direct
-    guard = torix_direct.TorixFrameGuard(key=key, stream_id=stream_id, is_turbo=is_turbo)
+    guard = torix_direct.TorixFrameGuard(key=key, stream_id=stream_id, is_turbo=is_turbo, mac_mode=mac_mode)
     return guard.pack_frame(seq_num=seq_num, payload=payload, aad=aad)
 
 
@@ -553,6 +554,7 @@ def unpack_frame(
     aad: bytes = b"",
     replay_window=None,
     is_turbo: bool = True,
+    mac_mode: str = "single_pass",
 ):
     """
     Executes the 4-stage fail-fast line-rate verification pipeline:
@@ -562,7 +564,7 @@ def unpack_frame(
     Stage 4: Constant-Time TORIX-128 Tag Verification
     """
     import torix_direct
-    guard = torix_direct.TorixFrameGuard(key=key, is_turbo=is_turbo, enable_anti_replay=False)
+    guard = torix_direct.TorixFrameGuard(key=key, is_turbo=is_turbo, enable_anti_replay=False, mac_mode=mac_mode)
     return guard.unpack_frame(raw_frame=raw_frame, aad=aad, replay_window=replay_window)
 
 

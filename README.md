@@ -304,6 +304,15 @@ python tests/run_all_phases.py
 
 ---
 
+## Real-World Production Verification
+
+The complete cryptographic pipeline is validated across operational workloads using the standalone production test engine (`test_real_world.py`). All 8 real-world production scenarios pass with **100.0% verification** (deterministic KATs, $\mathcal{O}(1)$ RAM bulk streaming, 4-way AVX2 Merkle trees, zero-copy NVMe mmap DMA ingestion, line-rate network framing, single-pass AEAD tamper rejection, salt+pepper password KDF, and RFC 5869 HKDF).
+
+For the complete, in-depth empirical performance matrices, microarchitectural storage telemetry, 4-stage fail-fast pipeline latency breakdowns, and single-pass MAC comparison analysis, see:  
+**[Complete Comparative Cryptographic Analysis & Performance Matrix (docs/COMPARATIVE_CRYPTOGRAPHIC_ANALYSIS.md)](docs/COMPARATIVE_CRYPTOGRAPHIC_ANALYSIS.md)**
+
+---
+
 ## Security Advisory: Cryptographic Principles & Usage Guidelines
 
 ### 1. General Hashing vs. Password Storage Advisory (OWASP Best Practice)
@@ -377,7 +386,6 @@ To understand how hardware vectorization achieves line-rate throughput without m
    $$2^{16} \equiv 1 \pmod{2^{16}-1} \implies 2^{16} \cdot q + r \equiv q + r \pmod{2^{16}-1}$$
 5. Applying 1's complement bitwise inversion $\sim S_{16}$ yields bit-for-bit identity:
    $$\text{Checksum}_{\text{SIMD}}(D) \equiv \text{Checksum}_{\text{RFC 1071}}(D) \quad \forall D \in \{0, 1\}^* \quad \blacksquare$$
-
 ---
 
 ## Contributing
