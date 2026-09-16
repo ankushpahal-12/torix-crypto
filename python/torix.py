@@ -300,8 +300,8 @@ def hash_password(password: str, pepper: str = "", iterations: int = 4096) -> st
     Format: $torix$i=4096$salt_hex$hash_hex
     """
     salt = os.urandom(16)
-    pw_bytes = password.encode("utf-8")
-    pep_bytes = pepper.encode("utf-8") if pepper else b""
+    pw_bytes = password.encode("utf-8") if isinstance(password, str) else bytes(password)
+    pep_bytes = pepper.encode("utf-8") if isinstance(pepper, str) else (bytes(pepper) if pepper else b"")
 
     # Initial stretching: salt + (optional pepper) + password
     initial_payload = salt + b"::" + (pep_bytes + b"::" if pep_bytes else b"") + pw_bytes
@@ -315,7 +315,7 @@ def hash_password(password: str, pepper: str = "", iterations: int = 4096) -> st
     return f"$torix$i={iterations}${salt.hex()}${current.hex()}"
 
 
-def verify_password(password: str, stored_hash_str: str, pepper: str = "") -> bool:
+def verify_password(password: str, stored_hash_str: str, pepper: Union[str, bytes] = "") -> bool:
     """
     Verifies a password against a stored crypt string and optional server secret key (Pepper)
     in branchless constant time to prevent timing side-channel attacks.
@@ -329,8 +329,8 @@ def verify_password(password: str, stored_hash_str: str, pepper: str = "") -> bo
     except Exception:
         return False
 
-    pw_bytes = password.encode("utf-8")
-    pep_bytes = pepper.encode("utf-8") if pepper else b""
+    pw_bytes = password.encode("utf-8") if isinstance(password, str) else bytes(password)
+    pep_bytes = pepper.encode("utf-8") if isinstance(pepper, str) else (bytes(pepper) if pepper else b"")
 
     initial_payload = salt + b"::" + (pep_bytes + b"::" if pep_bytes else b"") + pw_bytes
     current = h512.h512_hash(initial_payload)
@@ -341,6 +341,35 @@ def verify_password(password: str, stored_hash_str: str, pepper: str = "") -> bo
 
     # Constant-time comparison prevents timing analysis
     return secrets.compare_digest(current.hex(), expected_hex)
+
+
+# ==============================================================================
+# 5. CRYPTOGRAPHIC KEY DERIVATION (RFC 5869 HKDF)
+# ==============================================================================
+def hkdf(
+    ikm: bytes,
+    length: int = 64,
+    salt: Optional[bytes] = None,
+    info: bytes = b"",
+) -> bytes:
+    """
+    RFC 5869 HMAC-based Extract-and-Expand Key Derivation Function (HKDF) using TORIX-512.
+    Derives independent, pseudorandom sub-keys from an initial keying material (IKM).
+    """
+    import h512_modes
+    return h512_modes.hkdf_h512(salt=salt, ikm=ikm, info=info, length=length)
+
+
+def hkdf_extract(salt: Optional[bytes], ikm: bytes) -> bytes:
+    """HKDF-Extract step: extracts a pseudorandom key (PRK) from salt and IKM."""
+    import h512_modes
+    return h512_modes.hkdf_extract(salt=salt, ikm=ikm)
+
+
+def hkdf_expand(prk: bytes, info: bytes, length: int) -> bytes:
+    """HKDF-Expand step: expands PRK into desired output key length using info context."""
+    import h512_modes
+    return h512_modes.hkdf_expand(prk=prk, info=info, length=length)
 
 
 # ==============================================================================
