@@ -1,268 +1,274 @@
-# TORIX-512 Open Cryptographic Research Project & Cryptanalysis Challenge
+# TORIX Cryptographic Research Project: Cryptanalysis Challenge and Contribution Guide
 
-> [!IMPORTANT]
-> **Open Cryptanalysis Invitation:**  
-> **TORIX-512 is an experimental 512-bit cryptographic hash and permutation construction.**  
-> The algorithm and its reference implementations are now complete enough for rigorous, independent evaluation.  
-> 
-> **We explicitly do NOT claim that TORIX-512 is cryptographically secure.**  
-> The objective of this project is to invite the global academic and security community to **attack, analyze, dissect, and attempt to break the construction** before making any such claims. Negative results, distinguishers, and structural flaws are our most valuable deliverables.
+Document Identifier: TORIX-RES-CHALLENGE-REV2.0  
+Status: Active Open Research Invitation & Engineering Contribution Specification  
+Compliance: NIST FIPS 140-3 POST, RFC 5869 (HKDF), HAIFA Framework, BLAKE3 Tree Topologies  
+Target Audience: Cryptanalysts, Theoretical Computer Scientists, Security Engineers, and Systems Architects  
 
 ---
 
-## 1. The Challenge: Try to Break TORIX-512
+## Abstract
 
-Do not assume the construction is secure because its cellular geometry appears mathematically intricate. Real cryptographic trust is earned solely through sustained, hostile, and independent cryptanalysis.
+TORIX-512 is an experimental 512-bit cryptographic hash and permutation construction. The primitive operates over an 8x8 octet discrete 2-torus state geometry (T^2) utilizing an algebraically generated bijective 8-round Mini-Feistel substitution box (N_bio), cyclic 4-neighbor rotational context coupling, an involutive GF(2^8) circulant MDS hyper-diffusion matrix, and dual Miyaguchi-Preneel feedforward compression.
 
-If you discover:
-* ⚠️ **A statistical anomaly or non-random bias** in output bits
-* ⚠️ **A distinguisher** separating reduced-round or full-round variants from a random oracle
-* ⚠️ **An unexpected structural property** (rotational symmetry, slide attack, fixed point, or invariant subspace)
-* ⚠️ **A high-probability differential trail** through reduced or full rounds
-* ⚠️ **A statistically significant linear approximation** or correlation hull
-* ⚠️ **A practical or theoretical collision / semi-free-start collision** strategy
-* ⚠️ **A preimage or second-preimage attack** faster than brute-force complexity
-* ⚠️ **An implementation bug**, side-channel leak, or undefined behavior
-* ⚠️ **A mathematical loophole** in our wide-trail active S-box proofs
+The reference C99/AVX2 engine, Python verification harnesses, and formal mathematical specifications are frozen and open for hostile, independent cryptanalysis.
 
-👉 **Please document your methodology, write a proof-of-concept, and submit it!** Every confirmed weakness will be credited, published openly, and addressed in the evolutionary redesign cycle.
+We explicitly do not assert that TORIX-512 is unconditionally secure. Real cryptographic trust cannot be established by proclamation or mathematical intricacy alone; it requires sustained adversarial evaluation by the global scientific community. This document formalizes the active cryptanalytic challenge missions, research tracks, engineering requirements, and contribution guidelines.
 
 ---
 
-## 2. Who We Are Looking For
+## 1. Ethical Research Covenant
 
-We are building a multidisciplinary research network of academic cryptographers, security engineers, mathematicians, and systems developers:
+All contributors and researchers engaging with this repository agree to abide by the following ethical principles:
 
-```mermaid
-mindmap
-  root((TORIX-512 Collaborators))
-    🔐 Cryptanalysts
-      Differential Attacks
-      Linear Correlation
-      Distinguishers
-      Integral & Algebraic Attacks
-      Meet-in-the-Middle
-      Rebound & Invariant Subspace
-    🧮 Mathematical Researchers
-      S-Box Nonlinearity
-      Circulant MDS Branch Numbers
-      Discrete 2-Torus Topology
-      Algebraic Degree Bounds
-      Wide-Trail Active S-Box Proofs
-    💻 Implementation & Security Engineers
-      Fuzzing & Differential Testing
-      Constant-Time Side-Channel Analysis
-      Portability & Undefined Behavior
-      Cache Timing & Memory Barriers
-    ⚡ Performance Engineers
-      AVX-512 & ARM NEON / SVE
-      GPU CUDA / OpenCL Acceleration
-      FPGA / ASIC Pipelined Synthesis
-      Cache-Locality Optimizations
-    🧠 Cryptographic Designers
-      Structural Critique
-      Countermeasure Design
-      Alternative Topologies
-      Post-Quantum Hardening
-```
-
-### 🔐 1. Cryptanalysts
-* **Focus Areas:** Differential cryptanalysis, linear cryptanalysis, higher-order differential attacks, integral cryptanalysis, rebound attacks, rotational symmetries, algebraic attacks, slide attacks, and biclique preimages.
-* **Target:** Break reduced-round versions ($r = 2, 4, 6, 8$) or demonstrate non-random behavior on the full 16-round primitive.
-
-### 🧮 2. Mathematical Researchers
-* **Focus Areas:** Group theory on discrete 2-torus $\mathbb{T}^2 = (\mathbb{Z}/8\mathbb{Z}) \times (\mathbb{Z}/8\mathbb{Z})$, diffusion metrics of circulant GF($2^8$) MDS matrices, differential uniformity ($\delta_{\max} = 8$), branch numbers, algebraic degree growth, and wide-trail bound verification.
-* **Target:** Mathematically confirm or refute the claim that 16 rounds guarantee $n_{\text{act}} \ge 544$ active S-boxes.
-
-### 💻 3. Implementation & Security Engineers
-* **Focus Areas:** Fuzzing (AFL++, LibFuzzer), constant-time execution verification (dudect, valgrind), endian invariance across Big-Endian architectures, compiler sanitizers (ASan, UBSan, MSan), and portable fallback robustness.
-* **Target:** Identify memory safety bugs, compiler optimizations that eliminate `h512_cleanse`, or microarchitectural cache-timing side-channels.
-
-### ⚡ 4. Performance Engineers
-* **Focus Areas:** SIMD vectorization (AVX-512, ARM NEON, ARM SVE2, RISC-V Vector), parallel tree scheduling, CUDA/OpenCL parallel hashing kernels, and Verilog/VHDL FPGA synthesis.
-* **Target:** Push bulk throughput beyond the current native AVX2 4-way baseline.
-
-### 🧠 5. Cryptographic Designers
-* **Focus Areas:** Constructive redesign. Rather than merely asking *"can you fix my code?"*, we ask: *"What structural weaknesses exist in this cellular network, and what alternative primitives would improve security margin and diffusion efficiency?"*
+1. **Defensive and Academic Mandate:** TORIX is developed strictly for scientific investigation, standards development, high-throughput systems research, and defensive data integrity verification.
+2. **Prohibition of Malicious Weaponization:** Research submissions, tools, or proof-of-concept scripts designed to facilitate malware development, denial-of-service weapons, illegal network intrusion, or privacy violations are strictly rejected.
+3. **Coordinated Responsible Disclosure:** Discovered structural flaws, high-probability differential trails, zero-day vulnerabilities, or implementation bugs must follow the coordinated disclosure process detailed in Section 8 prior to uncoordinated public release.
 
 ---
 
-## 3. The 7 Active Research Missions
+## 2. Research and Contribution Tracks
 
-We have partitioned the research agenda into 7 concrete, actionable challenge tracks:
+Collaboration is structured across five dedicated engineering and cryptanalytic tracks:
+
+### Track 1: Cryptanalysis and Distinguisher Construction
+- **Objective:** Identify statistical distinguishers, differential trails, linear correlations, integral properties, or algebraic shortcuts.
+- **Focus Areas:**
+  - Reduced-round variants: 2, 4, 6, 8, 10, and 12 rounds.
+  - Full-round 16-round primitive under known or chosen message attacks.
+  - S-box differential uniformity (delta_max = 8) and component nonlinearity (NL = 100).
+  - Rotational, slide, and invariant subspace properties across cycling round families.
+
+### Track 2: Mathematical Proofs and Formal Verification
+- **Objective:** Formulate machine-checkable proofs or counter-models for claimed security bounds.
+- **Focus Areas:**
+  - Automated verification of the active S-box lower bound (claimed n_act >= 544 across 16 rounds).
+  - Branch number evaluation of circulant MDS diffusion under toroidal boundary constraints.
+  - SMT/SAT modeling using Z3, CryptoMiniSat, or MILP frameworks to evaluate differential cancellation paths.
+  - Formal theorem proving in Lean 4, Coq, or Isabelle/HOL.
+
+### Track 3: High-Performance Microarchitecture and Vectorization
+- **Objective:** Extend hardware vectorization and line-rate processing while preserving bit-exact determinism.
+- **Focus Areas:**
+  - AVX-512 register mapping (ZMM) and in-register 8x8 matrix transposition networks.
+  - ARM NEON and SVE2 vector kernels.
+  - RISC-V Vector Extension (RVV) implementations.
+  - Hardware description language (Verilog/VHDL) implementations targeting FPGA and ASIC pipelines.
+
+### Track 4: Side-Channel Hardening and Implementation Security
+- **Objective:** Eliminate physical side-channel leakages, timing differentials, and memory safety risks.
+- **Focus Areas:**
+  - Constant-time verification using Welch's t-test (dudect methodology).
+  - Cache-timing immunity across diverse microarchitectures.
+  - Elimination of compiler-induced dead-store elimination on sensitive memory cleansing.
+  - Continuous fuzzing integration via AFL++ and LibFuzzer.
+
+### Track 5: Clean-Room Multi-Language Implementations
+- **Objective:** Build zero-dependency, idiomatic reference libraries in diverse programming languages.
+- **Focus Areas:**
+  - Rust, Go, C++, Zig, and WebAssembly implementations.
+  - Full conformance with certified Known Answer Tests (KATs).
+
+---
+
+## 3. The 7 Active Cryptanalysis Challenge Missions
+
+The core research agenda is organized into seven concrete research missions:
 
 ```mermaid
 graph TD
-    C1["Challenge 1: Reproduce Primitives & Test Vectors"] --> C2["Challenge 2: Find a Reduced-Round Distinguisher"]
-    C2 --> C3["Challenge 3: High-Probability Differential Trails"]
-    C2 --> C4["Challenge 4: Linear Correlation Hulls"]
-    C3 & C4 --> C5["Challenge 5: Collision Search on Reduced Rounds"]
-    C1 --> C6["Challenge 6: Structural & Symmetry Analysis"]
-    C3 --> C7["Challenge 7: Formal Wide-Trail Proof Verification"]
+    C1["Mission 1: Clean-Room Reproduction & KAT Parity"] --> C2["Mission 2: Reduced-Round Distinguisher Construction"]
+    C2 --> C3["Mission 3: Automated Differential Trail Search"]
+    C2 --> C4["Mission 4: Linear Correlation Hull Search"]
+    C3 --> C5["Mission 5: Collision Search on Reduced Rounds"]
+    C4 --> C5
+    C1 --> C6["Mission 6: Spatial Symmetry & Invariant Subspaces"]
+    C3 --> C7["Mission 7: Machine Verification of Wide-Trail Bounds"]
 ```
 
-### 🎯 Challenge #1 — Independent Clean-Room Primitive Reproduction
-* **Objective:** Implement the cellular coupled step, the nonlinear core ($N_{\text{bio}}$), the circulant MDS matrix layer, and HAIFA padding completely from scratch in your language of choice (Rust, Go, C++, Zig, Haskell, etc.) following only the [Formal Specification](docs/PROJECT_H512_MASTER_CRYPTOGRAPHIC_DOSSIER.md).
-* **Success Criteria:** Verify that your clean-room implementation matches all certified Known Answer Tests (KATs) for `"abc"`, `""`, and variable-length CAVP vectors bit-for-bit.
+### Mission 1: Independent Clean-Room Implementation
+- **Goal:** Implement the complete TORIX-512 algorithm strictly from the formal mathematical specification without inspecting the reference C or Python source code.
+- **Target Languages:** Rust, Go, C++, Zig, Ada, or Haskell.
+- **Validation Criteria:** Must match all official Known Answer Tests (KATs) for empty string, short inputs, block boundaries, and 100,000-iteration Monte Carlo roots bit-for-bit.
 
-### 🎯 Challenge #2 — Construct a Reduced-Round Distinguisher
-* **Objective:** Determine the maximum number of rounds $r < 16$ for which the output of the permutation $P_r$ or the compression function can be distinguished from an ideal random permutation/oracle with advantage $> 2^{-64}$.
-* **Current State:** 2 rounds achieve 100% Strict Avalanche Criterion (SAC) diffusion. Can an integral, zero-correlation, or cube distinguisher pierce through 4 or 6 rounds?
+### Mission 2: Reduced-Round Distinguisher Construction
+- **Goal:** Determine the maximal round count r < 16 for which output blocks can be distinguished from an ideal random permutation with advantage epsilon > 2^(-64).
+- **Current Baseline:** 2 rounds achieve complete Strict Avalanche Criterion (SAC) diffusion. Can an integral, cube, zero-correlation, or higher-order differential distinguisher pierce through 4, 6, or 8 rounds?
 
-### 🎯 Challenge #3 — Differential Trail Search
-* **Objective:** Deploy automated differential search tools (e.g., SAT/SMT solvers, MILP models, or heuristic Matsui searches) to locate optimal differential trails across $r \in \{2, 3, 4, 6\}$ rounds.
-* **Key Metric:** Does any differential trail across 4 rounds have probability $P_{\text{diff}} > 2^{-64}$? Across 8 rounds have $P_{\text{diff}} > 2^{-256}$?
+### Mission 3: Automated Differential Trail Search
+- **Goal:** Formulate MILP or SAT/SMT models to locate optimal differential trails across 2, 4, 6, and 8 rounds.
+- **Key Metric:** Does any valid differential trail across 4 rounds have probability P_diff > 2^(-64)? Does any trail across 8 rounds have P_diff > 2^(-256)?
 
-### 🎯 Challenge #4 — Linear Correlation & Correlation Hulls
-* **Objective:** Search for statistically significant linear approximations connecting input parity masks $\alpha$ to output masks $\beta$.
-* **Key Metric:** Quantify the maximum correlation $|C(\alpha, \beta)|$ across 2, 4, and 8 rounds and assess the impact of linear hull clustering caused by the toroidal cyclic boundary conditions.
+### Mission 4: Linear Correlation Hulls
+- **Goal:** Search for linear approximations connecting input parity masks to output masks across reduced rounds.
+- **Key Metric:** Determine the maximum correlation magnitude |C(alpha, beta)| across 2, 4, and 8 rounds, and evaluate potential linear hull clustering induced by the toroidal cyclic boundary wrapping.
 
-### 🎯 Challenge #5 — Semi-Free-Start & Chosen-IV Collisions
-* **Objective:** Exploit the Miyaguchi-Preneel feedforward equation $S_i = P_{16}(S_{i-1} \oplus M \oplus C) \oplus S_{i-1} \oplus M$ to find collisions when the attacker is granted partial control over the initial state $S_{i-1}$ or message blocks $M$.
-* **Current State:** The HAIFA diagonal bit-counter injection $C(i, t)$ is designed to thwart slide and fix-in-the-middle attacks. Can this defense be bypassed?
+### Mission 5: Semi-Free-Start and Chosen-IV Collisions
+- **Goal:** Investigate whether Miyaguchi-Preneel feedforward compression can be compromised if the adversary has partial control over the input state or initial vector.
+- **Defense Mechanism:** Diagonal counter injection C(i, t) and domain tag T_domain are designed to prevent slide and fix-in-the-middle attacks. Formulate proof of resilience or demonstrate explicit counter-examples.
 
-### 🎯 Challenge #6 — Symmetries, Invariant Subspaces & Fixed Points
-* **Objective:** Analyze the discrete 2-torus $\mathbb{T}^2$ for rotational symmetries, diagonal subspace invariances, or fixed points ($P(S) = S$).
-* **Current State:** $N_{\text{bio}}$ has been proven to have zero fixed points ($N_{\text{bio}}(x) \neq x$) and zero opposite fixed points ($N_{\text{bio}}(x) \neq \bar{x}$). Do spatial symmetries emerge when combined with the row/column rotations?
+### Mission 6: Spatial Symmetry and Invariant Subspace Analysis
+- **Goal:** Analyze the discrete 2-torus manifold for rotational symmetries, diagonal subspace invariances, or fixed points (P(S) = S).
+- **Current Baseline:** N_bio is proven to exhibit zero fixed points (N_bio(x) != x) and zero opposite fixed points (N_bio(x) != ~x). Verify whether spatial symmetries emerge when combined with cyclical neighbor rotations.
 
-### 🎯 Challenge #7 — Verification of the Wide-Trail Security Proof
-* **Objective:** Review the mathematical argument in [Chapter 5](docs/H512_SPECIFICATION_CHAPTER_5_COMPRESSION.md) asserting that 16 rounds guarantee $\ge 544$ active S-boxes.
-* **Question for Theorists:** Does the interaction between local 4-neighbor Von Neumann coupling and global circulant MDS matrix multiplication strictly satisfy the branch number lower bound $\mathcal{B} \ge 5$ across all possible differential cancellation trajectories?
+### Mission 7: Formal Verification of Wide-Trail Proofs
+- **Goal:** Verify or refute the mathematical theorem asserting that 16 rounds strictly guarantee n_act >= 544 active S-boxes.
+- **Evaluation:** Does the interaction between local 4-neighbor Von Neumann coupling and global circulant MDS matrix multiplication satisfy the differential branch number lower bound B >= 5 across all possible cancellation trajectories?
 
 ---
 
-## 4. The Evolutionary Design Cycle
+## 4. Engineering Standards for Code Contributions
 
-We reject "security by proclamation." Instead, TORIX-512 follows an open, evolutionary feedback loop:
+Contributors submitting source code must adhere to these technical constraints:
 
-```
-             ┌──────────────────────────────────────────────┐
-             │       TORIX-512 Specification Freeze         │
-             │           (Current Baseline: v1.0)           │
-             └──────────────────────┬───────────────────────┘
-                                    │
-                                    ▼
-             ┌──────────────────────────────────────────────┐
-             │    Independent Testing & Cryptanalysis       │
-             │     (External Researchers, Universities)     │
-             └──────────────────────┬───────────────────────┘
-                                    │
-                         Is a weakness discovered?
-                                    │
-                    ┌───────────────┴───────────────┐
-                    │                               │
-                 [ NO ]                          [ YES ]
-                    │                               │
-                    ▼                               ▼
-    ┌───────────────────────────────┐ ┌───────────────────────────────┐
-    │  Document Resilience Bounds   │ │  Publicly Credit Researcher   │
-    │  & Accumulate Evidence Base   │ │  Publish Discovered Weakness  │
-    └───────────────────────────────┘ └──────────────┬────────────────┘
-                    │                               │
-                    │                               ▼
-                    │                 ┌───────────────────────────────┐
-                    │                 │  Engineered Redesign Phase    │
-                    │                 │  (e.g., S-box / Round Update) │
-                    │                 └──────────────┬────────────────┘
-                    │                               │
-                    │                               ▼
-                    │                 ┌───────────────────────────────┐
-                    │                 │  Issue New Version Milestone  │
-                    │                 │    (e.g., TORIX-512 v1.1)     │
-                    │                 └──────────────┬────────────────┘
-                    │                               │
-                    └───────────────────────────────┘
-                                    │
-                                    ▼
-                         Target: Certified Rigor
-```
+### 4.1 Bit-Exact Invariance
+- Cryptographic output must remain 100% deterministic and bit-exact across all platforms.
+- No changes to permutation order, rotation constants, S-box values, or round counters are permitted without architectural consensus.
 
-If a flaw is discovered, we do not conceal it:
-* The weakness will be formally documented in our security log.
-* The researcher will receive primary credit in the project changelog, papers, and repository.
-* A revised version (e.g., `v1.1`) will be released addressing the specific mathematical vector.
+### 4.2 Constant-Time Execution
+- **No Secret-Dependent Branches:** Control flow must never branch on key material, plaintext data, or internal sponge state octets.
+- **No Secret-Indexed Memory Accesses:** S-box lookups in the native engine must use cache-prefetched arrays, bitsliced logic, or SIMD table lookups (`vpshufb`).
+- **State Sanitization:** Sensitive memory structures must be wiped using `h512_cleanse` (guaranteed volatile compiler barrier).
+
+### 4.3 Nothing-Up-My-Sleeve (NUMS) Derivations
+- All constants (IV, round constants, permutation sequences) must be generated through transparent, verifiable mathematical algorithms derived from the fractional parts of primes.
+- Ad-hoc, hardcoded, or unexplained magic values are prohibited.
+
+### 4.4 Low-Level SIMD Optimization Discipline
+- Native C code must conform to C99 standards (`-std=c99 -Wall -Wextra -pedantic`).
+- SIMD implementations must eliminate register-to-stack spills in the inner permutation loops.
+- All internal state buffers must maintain strict 64-byte alignment (`H512_ALIGN64`) to prevent cache-line splitting across L1 cache boundaries.
 
 ---
 
-## 5. Reference Materials & Test Vectors
+## 5. Verification Protocol and Test Execution
 
-Before initiating analysis, verify your tools against the official reference materials:
+Before submitting any code or documentation changes, all test suites must pass cleanly:
 
-| Resource | Description | Location |
-|---|---|---|
-| **Definitive Cryptographic Dossier** | Comprehensive mathematical formulation and security bounds | [docs/PROJECT_H512_MASTER_CRYPTOGRAPHIC_DOSSIER.md](docs/PROJECT_H512_MASTER_CRYPTOGRAPHIC_DOSSIER.md) |
-| **API & Syntax Reference** | Complete C99/AVX2 and Python interface manual | [docs/TORIX_API_AND_SYNTAX_MANUAL.md](docs/TORIX_API_AND_SYNTAX_MANUAL.md) |
-| **Step-by-Step Numerical Trace** | Bit-exact trace through all 16 rounds on `"abc"` | [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md) |
-| **Single-File Native C Engine** | Pure C99/AVX2 implementation with zero dynamic allocations | [src/h512.c](src/h512.c) & [src/h512.h](src/h512.h) |
-| **Pure Python Reference** | Educational, readable reference implementation | [python/h512.py](python/h512.py) |
-| **NIST FIPS 140-3 Test Suite** | Automated KAT and 100,000-iteration Monte Carlo verification | [tests/test_fips_kat.py](tests/test_fips_kat.py) |
-
-### Certified Known Answer Test (KAT) Vectors
+### Step 1: Python Test Discovery
+```bash
+python -m unittest discover tests/
 ```
-KAT #1: Empty String ("") [64 Bytes]
-c43cc267c5e98b5c8c9b543814e1b3c5cee767cf1f214d89cf1d47090abf7a73ec2de95bf83a1907ba0b9fdea014db70f0092ef6b81a71d14f45fc7a14391f92
+Target: 37/37 tests passing (0 failures, 0 errors).
 
-KAT #2: Standard Test Vector ("abc") [64 Bytes]
-97baaec0f04a1cf09d88848a4bf32651d339892f5660096e5dd60defde26d0f1a94ab08d34ac5605843762fdb249c10ef2acf02c0a59526c94d9a718fc8be079
-
-KAT #3: Truncated 256-bit Vector ("abc") [32 Bytes]
-340fd4b0c928c1e52e4076e4ef4dad0721597a4180d80004cb84f4326d640153
-
-KAT #4: 100,000-Iteration NIST Monte Carlo Golden Root (Seed: "TORIX-512-MONTE-CARLO-SEED")
-44646601161bf9acc5a666eb6f97a5111f195c10917495731003004ee47fbc7d13154e0d5d0c2e7b202a9d2fe271a4cba4b6c094d46887dffd2040911b39bd01
+### Step 2: C Test Harness
+```bash
+gcc -O3 -std=c99 -mavx2 -Isrc src/h512.c tests/test_t512_harness.c -o tests/test_t512_harness.exe
+./tests/test_t512_harness.exe
 ```
+Target: Output concludes with `ALL_C_HARNESS_TESTS_PASSED`.
+
+### Step 3: AVX2 4-Way SIMD and Merkle Tree Suite
+```bash
+python tests/test_tree_simd.py
+```
+Target: Confirms 100% cross-language bit-exact parity across all chunk boundaries.
+
+### Step 4: Master Verification Dashboard
+```bash
+python tests/run_all_phases.py
+```
+Target: 14/14 test suites pass successfully.
 
 ---
 
-## 6. Academic Outreach & Cold Contact Template
+## 6. Certified Known Answer Test (KAT) Vectors
 
-When inviting professors, PhD researchers, or cryptographic groups to review the design, transparency and humility are paramount. Use this template:
+Reference values for implementation validation:
 
-```text
-Subject: Cryptographic Research Outreach: Independent Analysis of TORIX-512
+### KAT 1: Empty String ("") -- TORIX-512 (Tag 0x00)
+```
+Input: "" (0 bytes)
+Digest:
+0c07c4b4f590e8c87ab4252e043743916738ae85fc67d8f5cb58d4a656607e47
+50a417b1ec11ce6ae57c919d3fbc19c962915cb4ba6e680aef89569762143ea6
+```
 
-Dear Professor / Dr. [Last Name],
+### KAT 2: Standard Vector ("abc") -- TORIX-512 (Tag 0x00)
+```
+Input: "abc" (3 bytes)
+Digest:
+417dc7fe51ea4da99b2447b85f6ce836371cfb9ad821a733ecbe12dbe0242ea8
+7e2894101e403487f9da76646872566779b76e1074a12361ec0058b76c8cbf12
+```
 
-I am currently working on an experimental 512-bit cryptographic hash and permutation construction called TORIX-512.
-
-The construction is now complete enough for independent implementation and cryptanalysis, and I am actively seeking researchers who are willing to attempt to break it rather than merely validate it.
-
-I am particularly interested in independent evaluation of its:
-- Differential and linear trail bounds
-- Cellular toroidal diffusion dynamics (Von Neumann 4-neighbor coupling over T^2)
-- Involutive circulant GF(2^8) MDS diffusion structure
-- Algebraic degree and resistance to algebraic / integral distinguishers
-- Active S-box count verification (claimed n_act >= 544 across 16 rounds)
-
-I am explicitly NOT claiming that TORIX-512 is cryptographically secure. The goal of opening the project to external researchers is to discover flaws, identify structural weaknesses, and use those findings to improve or fundamentally redesign the construction.
-
-The specification, reference C99/AVX2 source, Python reference, and certified NIST test vectors are publicly available at:
-https://github.com/ankushpahal-12/torix-crypto
-
-I would genuinely welcome your criticism—especially if your conclusion is that aspects of the construction should be redesigned or abandoned.
-
-Thank you very much for your time and expertise.
-
-Sincerely,
-Ankush Pahal
-Lead Researcher, Project TORIX-512
+### KAT 3: Turbo-10 Profile ("abc") -- Tag 0x06 (10 Rounds)
+```
+Input: "abc" (3 bytes)
+Digest:
+b5ec35ae75184bfa68748fae3240eb0f048d086208be3ef7fe0da7dfcb42858b
+cf0ea0e8549eef3bf4fa550b73b4e60155b1129b007137f68c37e6da48512ff3
 ```
 
 ---
 
-## 7. How to Submit Findings & Contributions
+## 7. Evolutionary Scientific Redesign Protocol
 
-We welcome contributions via GitHub Issues and Pull Requests. Please tag your submissions according to the domain:
+We reject static claims of finality. If an attack or structural defect is uncovered, the project proceeds through an open evolutionary cycle:
 
-| Tag / Label | Description |
-|---|---|
-| `cryptanalysis` | Attacks, differential trails, linear correlations, distinguishers, or collision attempts |
-| `security-review` | Implementation security, side-channel analysis, memory safety, or fuzzing findings |
-| `mathematics` | Mathematical proofs, S-box analysis, MDS properties, or branch number evaluation |
-| `performance` | AVX-512, ARM NEON, CUDA GPU, FPGA, or micro-architectural optimizations |
-| `cleanroom-impl` | Independent implementations in Rust, Go, Zig, C++, or other languages |
-| `research-idea` | Novel structural ideas, alternative round functions, or post-quantum defenses |
+```
++-------------------------------------------------------------+
+|               TORIX-512 Specification Baseline              |
++------------------------------+------------------------------+
+                               |
+                               v
++-------------------------------------------------------------+
+|             Hostile Cryptanalysis & Peer Review             |
++------------------------------+------------------------------+
+                               |
+                     Weakness Discovered?
+                               |
+              +----------------+----------------+
+              |                                 |
+           [ NO ]                            [ YES ]
+              |                                 |
+              v                                 v
++-----------------------------+   +-----------------------------+
+| Document Resilience Bounds  |   | Publicly Credit Researcher  |
+| & Confirm Safety Margin     |   | Document Formal Vector      |
++-----------------------------+   +--------------+--------------+
+                                                 |
+                                                 v
+                                  +-----------------------------+
+                                  | Evolutionary Redesign Phase |
+                                  | (e.g., S-box / Round Count) |
+                                  +--------------+--------------+
+                                                 |
+                                                 v
+                                  +-----------------------------+
+                                  |   Release Revision Milestone|
+                                  |       (e.g., TORIX v2.1)    |
+                                  +-----------------------------+
+```
 
-All findings—including theoretical attacks with non-practical complexity—are treated as first-class scientific contributions.
+---
 
-*Let's build a cryptographically robust standard through adversarial transparency.*
+## 8. Submission Protocol, Attribution, and Responsible Disclosure
+
+### 8.1 Reporting Cryptanalytic Findings
+When reporting a weakness, distinguisher, or attack:
+1. Document the mathematical model, differential/linear characteristics, and estimated operational complexity.
+2. Provide a standalone Python or SageMath script reproducing the behavior on reduced rounds.
+3. Submit the finding via a private vulnerability report or issue tagged `[CRYPTANALYSIS SUBMISSION]`.
+
+### 8.2 Coordinated Disclosure Timeline
+- We adhere to a standard 30-day coordination window to verify the mathematical findings, analyze root causes, and draft architectural countermeasures.
+- Researchers will receive full public credit in the repository release notes, project dossier, and formal publication documentation.
+
+### 8.3 Pull Request Convention
+Branch naming must follow standard prefixes:
+- `crypto/<description>`: Cryptanalytic attacks, solver scripts, or bound proofs.
+- `feat/<description>`: SIMD vector kernels, platform ports, or hardware implementations.
+- `fix/<description>`: Bug fixes, memory optimizations, or documentation corrections.
+- `perf/<description>`: Benchmark improvements and microarchitectural optimizations.
+
+All commit messages must adhere to Conventional Commits:
+```
+<type>(<scope>): <concise description>
+
+<technical details, mathematical rationale, or performance delta>
+```
+
+---
+
+*TORIX Cryptographic Research Group*

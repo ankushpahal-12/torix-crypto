@@ -380,6 +380,10 @@ To understand how hardware vectorization achieves line-rate throughput without m
 
 ---
 
+## Contributing
+Contributions are welcomed across cryptanalysis, low-level microarchitectural optimizations, and formal proofs. Please consult [**`CRYPTANALYSIS_CHALLENGE.md`**](CRYPTANALYSIS_CHALLENGE.md) for architectural guidelines, active research missions, constant-time requirements, and verification protocols.
+
+---
+
 ## License
 This project is licensed under the [MIT License (with Ethical Research & Testing Covenant)](LICENSE).
-

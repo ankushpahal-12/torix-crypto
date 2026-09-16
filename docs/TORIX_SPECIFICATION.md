@@ -418,7 +418,7 @@ Traditional communication streaming forces a 2-pass pipeline: an outer Reed-Solo
 An $(n, k)$ code where $n = k + m$ is constructed over $\mathbb{F}_{2^8}$ ($p(x) = \mathtt{0x11B}$):
 
 $$
-G = \begin{pmatrix} I_k \\ \hline C_{m \times k} \end{pmatrix}, \quad C_{j, i} = \frac{1}{X_j \oplus Y_i}
+G = \begin{pmatrix} I_k \\ C_{m \times k} \end{pmatrix}, \quad C_{j, i} = \frac{1}{X_j \oplus Y_i}
 $$
 
 where $X = \{0, \dots, m-1\}$ and $Y = \{m, \dots, m+k-1\}$ are disjoint sets. Because every submatrix of a Cauchy matrix is non-singular, any $k$ surviving packets out of the $k+m$ transmitted packets can invert the system.
