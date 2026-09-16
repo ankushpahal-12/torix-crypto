@@ -24,12 +24,12 @@ tests/*.bin
 Thumbs.db
 
 # Blender temporary renders and backups
+*.blend
 *.blend1
 render_frames/
 
-web/
 python/torix_3d.py
-
-torix_512_scene.blend
+web/
 
 tests/
+1.txt

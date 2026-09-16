@@ -4,7 +4,8 @@
 
 # TORIX-512 Cryptographic Suite
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docs](https://img.shields.io/badge/Docs-Specification%20Portal-blueviolet.svg)](web/index.html)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/Verification-100%25%20PASS-brightgreen.svg)]()
 [![FIPS POST](https://img.shields.io/badge/FIPS%20140--3-POST%20Verified-brightgreen.svg)]()
 [![AVX2](https://img.shields.io/badge/AVX2-4--Way%20SIMD-blue.svg)]()
@@ -74,6 +75,7 @@ torix-crypto/
 |-- CRYPTANALYSIS_CHALLENGE.md                       # OPEN RESEARCH INVITATION & 7 ATTACK MISSIONS
 |
 |-- docs/                                            # Formal Cryptographic Specifications & Manuals
+|   |-- TORIX_SPECIFICATION.md                       # Canonical Formal Algorithm Specification (v2.1)
 |   |-- TORIX_API_AND_SYNTAX_MANUAL.md               # Unified API, Syntax, and Integration Reference
 |   |-- HOW_IT_WORKS.md                              # End-to-End Architecture & Step-by-Step Worked Trace
 |   |-- COMPARATIVE_CRYPTOGRAPHIC_ANALYSIS.md        # SHA-256 / BLAKE3 Comparative Analysis
@@ -103,6 +105,7 @@ torix-crypto/
 |   |-- run_attack_battery.py                        # 6-Phase Cryptanalytic Attack Battery
 |   |-- test_h512.py                                 # Core test battery (avalanche, SAC, vectors)
 |   `-- verify_phase3.py ... verify_phase14.py       # 12 Modular verification suites
+|
 |
 |-- .gitignore                                       # Clean repository filter
 |-- LICENSE                                          # MIT Open-Source License
@@ -312,6 +315,15 @@ python tests/run_all_phases.py
 * **Mathematical vs. Obscurity Security:** TORIX-512 strictly conforms to **Kerckhoffs's Principle**: the security of the algorithm depends solely on the secrecy of the private key/nonce (for AEAD) or the mathematical irreversibility of the one-way compression function, **never on the secrecy of the source code**.
 * **Zero Backdoors (NUMS Constants):** All constants within TORIX-512 are **Nothing-Up-My-Sleeve (NUMS)** numbers derived transparently from the square roots and cube roots of the first 64 prime numbers ($\sqrt{2}, \sqrt{3}, \dots$), published openly in [`src/h512_constants.h`](src/h512_constants.h).
 * **Public Scrutiny:** Public visibility on GitHub is a feature, not a risk. Open review is the foundation upon which international cryptographic standards (e.g., AES, SHA-3) are established.
+
+### 3. Mathematical Equivalence: Proof of Bit-Exact Identity
+**Is the output identical?** Yes, 100% bit-for-bit identical!
+
+By the definition of the Merkle-Damgård / HAIFA iterative chaining rule:
+$$H\big((K \oplus \text{ipad}) \parallel M\big) \equiv \mathcal{H}\Big(\underbrace{\mathcal{H}(\text{IV}, \, K \oplus \text{ipad})}_{\text{This is exactly } S_{\text{ipad}}}, \, M\Big)$$
+
+Because the state transition function $\mathcal{H}$ is deterministic:
+$$\text{Output}(\text{Naive HMAC}) \equiv \text{Output}(\text{Precomputed HMAC}) \quad \forall (K, M)$$
 
 ---
 

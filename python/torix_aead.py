@@ -144,9 +144,6 @@ def torix_aead_decrypt(key: bytes, nonce: bytes, ciphertext: bytes, tag: bytes, 
     Decrypts ciphertext and verifies the 256-bit authentication tag in constant time.
     Returns: plaintext if tag is valid; None if tag verification fails.
     """
-    if len(tag) != 32:
-        return None
-
     # 1. Initialize state
     state_bytes = _init_aead_state(key, nonce)
 
@@ -187,7 +184,8 @@ def torix_aead_decrypt(key: bytes, nonce: bytes, ciphertext: bytes, tag: bytes, 
     computed_tag = final_state[:32]
 
     # Constant-time tag comparison
-    if secrets.compare_digest(computed_tag, tag):
+    tag_valid = (len(tag) == 32) and secrets.compare_digest(computed_tag, tag)
+    if tag_valid:
         return bytes(plaintext)
     else:
         # Wipe plaintext buffer to prevent any unauthenticated data release

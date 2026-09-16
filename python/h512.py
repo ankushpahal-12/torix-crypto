@@ -402,7 +402,7 @@ class H512Hasher:
     def S(self, value: List[List[int]]) -> None:
         self.state = value
 
-    def update(self, data: Union[bytes, bytearray, str]) -> "H512Hasher":
+    def update(self, data: Union[bytes, bytearray, str, memoryview]) -> "H512Hasher":
         if isinstance(data, str):
             data = data.encode("utf-8")
         self.total_bytes += len(data)
@@ -411,7 +411,7 @@ class H512Hasher:
         # Process full 64-byte blocks
         while len(self.buffer) >= 64:
             block = bytes(self.buffer[:64])
-            self.buffer = self.buffer[64:]
+            del self.buffer[:64]
             self.blocks_processed += 1
             cumulative_bits = min(self.blocks_processed * 512, self.total_bytes * 8)
             self.state = compress_block(self.state, block, cumulative_bits, self.num_rounds)
@@ -473,17 +473,17 @@ class H256Hasher(H512Hasher):
 # ==============================================================================
 # HIGH-LEVEL API FUNCTIONS
 # ==============================================================================
-def h512_hash(data: Union[bytes, bytearray, str]) -> bytes:
+def h512_hash(data: Union[bytes, bytearray, str, memoryview]) -> bytes:
     """One-shot computation of the 512-bit (64-byte) Project H-512 digest."""
     return H512Hasher(domain_tag=0x00).update(data).digest()
 
 
-def h512_turbo_hash(data: Union[bytes, bytearray, str]) -> bytes:
+def h512_turbo_hash(data: Union[bytes, bytearray, str, memoryview]) -> bytes:
     """One-shot computation of the 10-round high-speed Turbo-10 digest."""
     return H512Hasher(domain_tag=TAG_TURBO_512, num_rounds=10).update(data).digest()
 
 
-def h256_hash(data: Union[bytes, bytearray, str]) -> bytes:
+def h256_hash(data: Union[bytes, bytearray, str, memoryview]) -> bytes:
     """One-shot computation of the 256-bit (32-byte) Project H-256 digest."""
     return H256Hasher().update(data).digest()
 
@@ -496,9 +496,18 @@ def hexdigest(digest_bytes: bytes) -> str:
 def hash_file(filepath: str, mode: str = "512", buffer_size: int = 65536) -> str:
     """
     Streams and hashes a file from disk using O(1) memory.
-    mode can be '512' (default) or '256'.
+    mode can be '512' (default), '256', or 'turbo' / 'turbo10'.
     """
-    hasher = H512Hasher(domain_tag=0x00 if mode == "512" else 0x01)
+    if mode in ("turbo", "turbo10", "turbo-10"):
+        domain_tag = TAG_TURBO_512
+        num_rounds = 10
+    elif mode == "256":
+        domain_tag = 0x01
+        num_rounds = 16
+    else:
+        domain_tag = 0x00
+        num_rounds = 16
+    hasher = H512Hasher(domain_tag=domain_tag, num_rounds=num_rounds)
     with open(filepath, "rb") as f:
         while True:
             chunk = f.read(buffer_size)

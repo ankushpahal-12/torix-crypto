@@ -18,6 +18,7 @@ if _PKG_DIR not in sys.path:
 
 
 import math
+import mmap
 import struct
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Tuple, Union
@@ -65,7 +66,7 @@ class H512TreeHasher:
         if n <= self.chunk_size:
             if self.num_rounds == 10:
                 return h512_custom_tag(data, TAG_TURBO_512, num_rounds=10)
-            return h512_custom_tag(data, TAG_STANDARD_512, num_rounds=16)
+            return h512_custom_tag(data, TAG_STANDARD_512, num_rounds=self.num_rounds)
 
         # 1. Partition data into chunks
         chunks = [data[i : i + self.chunk_size] for i in range(0, n, self.chunk_size)]
@@ -161,6 +162,9 @@ class MerkleTreeBuilder:
                 # Sibling is to the right
                 if idx + 1 < len(nodes):
                     proof.append(("right", nodes[idx + 1]))
+                else:
+                    # Lone node promoted directly to next tree level
+                    proof.append(("promoted", b""))
             else:
                 # Sibling is to the left
                 proof.append(("left", nodes[idx - 1]))
@@ -178,8 +182,11 @@ def verify_merkle_proof(chunk: bytes, chunk_index: int, proof: List[Tuple[str, b
     for direction, sibling in proof:
         if direction == "right":
             current = h512_custom_tag(current + sibling, TAG_TREE_INTERNAL)
-        else:
+        elif direction == "left":
             current = h512_custom_tag(sibling + current, TAG_TREE_INTERNAL)
+        elif direction == "promoted":
+            # Lone node was promoted to next level without hashing
+            continue
 
     calculated_root = h512_custom_tag(current, TAG_TREE_ROOT)
     return calculated_root == root
@@ -202,8 +209,10 @@ def hkdf_expand(prk: bytes, info: bytes, length: int) -> bytes:
     """
     HKDF-Expand: Expands PRK to arbitrary output length L (up to 255 * 64 bytes).
     """
-    assert len(prk) == 64, f"PRK must be exactly 64 bytes for H-512, got {len(prk)}"
-    assert length <= 255 * 64, f"Requested length {length} exceeds HKDF max bound (16,320 bytes)"
+    if len(prk) != 64:
+        raise ValueError(f"PRK must be exactly 64 bytes for H-512, got {len(prk)}")
+    if length > 255 * 64:
+        raise ValueError(f"Requested length {length} exceeds HKDF max bound (16,320 bytes)")
 
     n_blocks = math.ceil(length / 64.0)
     okm = bytearray()
@@ -326,7 +335,12 @@ def encode_t512_file(input_path: str, output_path: str, chunk_size: int = 1024, 
         f.write(container)
 
 
-def verify_t512_slice(container: bytes, offset: int, length: int, expected_root: bytes) -> bytes:
+def verify_t512_slice(
+    container: Union[bytes, bytearray, memoryview, mmap.mmap],
+    offset: int,
+    length: int,
+    expected_root: bytes,
+) -> bytes:
     """
     Extracts and cryptographically verifies a slice [offset, offset + length) from a .t512 container.
     Verifies leaf chunk digests and the O(log N) Merkle authentication path to expected_root.
@@ -358,7 +372,7 @@ def verify_t512_slice(container: bytes, offset: int, length: int, expected_root:
     num_chunks = (content_len + chunk_size - 1) // chunk_size if content_len > 0 else 0
 
     if num_chunks <= 1:
-        payload = container[T512_HEADER_SIZE : T512_HEADER_SIZE + content_len]
+        payload = bytes(container[T512_HEADER_SIZE : T512_HEADER_SIZE + content_len])
         computed_root = h512.h512_turbo_hash(payload) if is_turbo else h512.h512_hash(payload)
         if not h512.constant_time_compare(computed_root, expected_root):
             raise ValueError("Root hash mismatch: single chunk container corrupted or tampered")
@@ -384,7 +398,7 @@ def verify_t512_slice(container: bytes, offset: int, length: int, expected_root:
     payload_base = T512_HEADER_SIZE + total_nodes * 64
 
     # Verify top node against expected_root
-    top_node = container[level_offsets[-1] : level_offsets[-1] + 64]
+    top_node = bytes(container[level_offsets[-1] : level_offsets[-1] + 64])
     computed_root = h512_custom_tag(top_node, TAG_TREE_ROOT, num_rounds=num_rounds)
     if not h512.constant_time_compare(computed_root, expected_root):
         raise ValueError("Root hash mismatch: Merkle root rejected")
@@ -396,10 +410,10 @@ def verify_t512_slice(container: bytes, offset: int, length: int, expected_root:
     for c in range(first_chunk, last_chunk + 1):
         c_ptr = payload_base + c * chunk_size
         c_len = (content_len - c * chunk_size) if (c == num_chunks - 1) else chunk_size
-        chunk_data = container[c_ptr : c_ptr + c_len]
+        chunk_data = bytes(container[c_ptr : c_ptr + c_len])
         leaf_hash = h512_custom_tag(chunk_data, TAG_TREE_LEAF, num_rounds=num_rounds)
 
-        expected_leaf = container[level_offsets[0] + c * 64 : level_offsets[0] + (c + 1) * 64]
+        expected_leaf = bytes(container[level_offsets[0] + c * 64 : level_offsets[0] + (c + 1) * 64])
         if not h512.constant_time_compare(leaf_hash, expected_leaf):
             raise ValueError(f"Leaf chunk {c} hash mismatch: payload corrupted or tampered")
 
@@ -409,26 +423,31 @@ def verify_t512_slice(container: bytes, offset: int, length: int, expected_root:
             left_child = idx if (idx % 2 == 0) else (idx - 1)
             right_child = left_child + 1
             parent_idx = idx // 2
-            parent_node = container[level_offsets[lvl + 1] + parent_idx * 64 : level_offsets[lvl + 1] + (parent_idx + 1) * 64]
+            parent_node = bytes(container[level_offsets[lvl + 1] + parent_idx * 64 : level_offsets[lvl + 1] + (parent_idx + 1) * 64])
 
             if right_child < level_counts[lvl]:
-                left_hash = container[level_offsets[lvl] + left_child * 64 : level_offsets[lvl] + (left_child + 1) * 64]
-                right_hash = container[level_offsets[lvl] + right_child * 64 : level_offsets[lvl] + (right_child + 1) * 64]
+                left_hash = bytes(container[level_offsets[lvl] + left_child * 64 : level_offsets[lvl] + (left_child + 1) * 64])
+                right_hash = bytes(container[level_offsets[lvl] + right_child * 64 : level_offsets[lvl] + (right_child + 1) * 64])
                 computed_parent = h512_custom_tag(left_hash + right_hash, TAG_TREE_INTERNAL, num_rounds=num_rounds)
                 if not h512.constant_time_compare(computed_parent, parent_node):
                     raise ValueError(f"Internal Merkle node mismatch at level {lvl}")
             else:
-                promoted_hash = container[level_offsets[lvl] + left_child * 64 : level_offsets[lvl] + (left_child + 1) * 64]
+                promoted_hash = bytes(container[level_offsets[lvl] + left_child * 64 : level_offsets[lvl] + (left_child + 1) * 64])
                 if not h512.constant_time_compare(promoted_hash, parent_node):
                     raise ValueError(f"Promoted node mismatch at level {lvl}")
             idx = parent_idx
 
-    payload = container[payload_base : payload_base + content_len]
-    return payload[offset : offset + length]
+    return bytes(container[payload_base + offset : payload_base + offset + length])
 
 
 def verify_t512_file_slice(t512_path: str, offset: int, length: int, expected_root: bytes) -> bytes:
-    """Extracts and verifies a slice from a .t512 container file on disk."""
+    """
+    Extracts and cryptographically verifies a slice from a .t512 container file on disk
+    without loading the entire container into memory, leveraging memory-mapped I/O (mmap).
+    """
     with open(t512_path, "rb") as f:
-        container = f.read()
-    return verify_t512_slice(container, offset, length, expected_root)
+        file_size = os.fstat(f.fileno()).st_size
+        if file_size == 0:
+            raise ValueError("Container truncated: empty file")
+        with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+            return verify_t512_slice(mm, offset, length, expected_root)

@@ -172,14 +172,12 @@ static void compress_block_rounds(uint8_t S[8][8], const uint8_t block[64], uint
     h512_state_t S_prev;
     memcpy(S_prev.b, S, 64);
 
-    uint64_t m_disp_u64[8];
-    const uint64_t *M_in = (const uint64_t *)block;
+    h512_state_t m_disp_state;
     for (int r = 0; r < 8; r++) {
-        int shift = r & 7;
-        uint64_t x = M_in[r];
-        m_disp_u64[r] = shift ? ((x >> (shift * 8)) | (x << ((8 - shift) * 8))) : x;
+        for (int c = 0; c < 8; c++) {
+            m_disp_state.b[r][c] = block[r * 8 + ((c + r) & 7)];
+        }
     }
-    const uint8_t (*m_disp)[8] = (const uint8_t (*)[8])m_disp_u64;
 
     uint8_t t_bytes[8];
     for (int i = 0; i < 8; i++) {
@@ -189,7 +187,7 @@ static void compress_block_rounds(uint8_t S[8][8], const uint8_t block[64], uint
     h512_state_t state_buf[2];
     for (int r = 0; r < 8; r++) {
         for (int c = 0; c < 8; c++) {
-            state_buf[0].b[r][c] = S[r][c] ^ m_disp[r][c];
+            state_buf[0].b[r][c] = S[r][c] ^ m_disp_state.b[r][c];
             if (r == c) state_buf[0].b[r][c] ^= t_bytes[r];
         }
     }
@@ -200,7 +198,7 @@ static void compress_block_rounds(uint8_t S[8][8], const uint8_t block[64], uint
 
     uint64_t *S_u64 = (uint64_t *)S;
     for (int r = 0; r < 8; r++) {
-        S_u64[r] = state_buf[0].u64[r] ^ S_prev.u64[r] ^ m_disp_u64[r];
+        S_u64[r] = state_buf[0].u64[r] ^ S_prev.u64[r] ^ m_disp_state.u64[r];
     }
 }
 

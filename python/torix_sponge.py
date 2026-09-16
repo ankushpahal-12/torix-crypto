@@ -69,6 +69,12 @@ class TorixSponge:
         init_state[7][7] ^= self.domain_tag
         self.state = permute_p16(init_state)
 
+    def copy(self) -> "TorixSponge":
+        """Returns an independent defensive clone of the sponge engine."""
+        clone = TorixSponge(rate_bytes=self.rate, capacity_bytes=self.capacity, domain_tag=self.domain_tag)
+        clone.state = [row[:] for row in self.state]
+        return clone
+
     def absorb(self, data: bytes):
         """
         Absorbs arbitrary-length data into the sponge with multi-rate NIST 10*1 padding.
