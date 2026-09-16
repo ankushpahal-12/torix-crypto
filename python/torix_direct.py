@@ -262,17 +262,47 @@ def direct_stream_hash(
 
 # ==============================================================================
 # SECTION 3: LINE-RATE AUTHENTICATED NETWORK PACKET FRAMING (TORIX-FrameGuard)
-# ==============================================================================
+# Native C SIMD RFC 1071 acceleration hook
+_NATIVE_CKSUM_FN = None
+try:
+    import ctypes
+    _pkg_dir = os.path.dirname(os.path.abspath(__file__))
+    _root_dir = os.path.abspath(os.path.join(_pkg_dir, ".."))
+    for _lib_cand in [
+        os.path.join(_root_dir, "libtorix.dll"),
+        os.path.join(_root_dir, "libtorix.so"),
+        os.path.join(_root_dir, "libtorix.dylib"),
+    ]:
+        if os.path.exists(_lib_cand):
+            try:
+                _dll = ctypes.CDLL(_lib_cand)
+                _dll.rfc1071_checksum.argtypes = [ctypes.c_char_p, ctypes.c_size_t]
+                _dll.rfc1071_checksum.restype = ctypes.c_uint16
+                _NATIVE_CKSUM_FN = _dll.rfc1071_checksum
+                break
+            except Exception:
+                pass
+except Exception:
+    pass
+
 
 def compute_rfc1071_checksum(data: Union[bytes, bytearray, memoryview]) -> int:
     """
     Computes the standard Internet 16-bit 1's complement checksum (RFC 1071).
     Used as Stage 2 fast-path noise rejection (<1.5 ns) to drop physical line noise
     before consuming CPU cycles on cryptographic rounds.
+    Leverages AVX2 SIMD folded vector acceleration via C engine when available.
     """
     length = len(data)
     if length == 0:
         return 0xFFFF
+
+    if _NATIVE_CKSUM_FN is not None:
+        try:
+            b_data = bytes(data) if not isinstance(data, bytes) else data
+            return int(_NATIVE_CKSUM_FN(b_data, length))
+        except Exception:
+            pass
 
     num_words = length // 2
     s = 0
@@ -287,6 +317,7 @@ def compute_rfc1071_checksum(data: Union[bytes, bytearray, memoryview]) -> int:
         s = (s & 0xFFFF) + (s >> 16)
 
     return (~s) & 0xFFFF
+
 
 
 def compute_torix_mac(

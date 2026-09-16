@@ -88,6 +88,12 @@ int  h512_has_avx2(void);
 void h512_compress_4way_avx2(uint8_t S[4][8][8], const uint8_t (*blocks)[64], uint64_t cumulative_bits);
 void h512_hash_leaf_chunks_4way_avx2(const uint8_t *const chunks[4], size_t chunk_len, uint8_t out[4][64]);
 
+/* SIMD Folded & SWAR-64 Internet Checksum (RFC 1071 Stage 2 Fast-Path) */
+uint16_t rfc1071_checksum_avx2(const void *data, size_t len);
+uint16_t rfc1071_checksum_swar64(const void *data, size_t len);
+uint16_t rfc1071_checksum(const void *data, size_t len);
+
+
 /* ========================================================================= */
 /* 4. NATIVE PARALLEL BINARY MERKLE TREE HASHER & TURBO-10 PROFILE           */
 /* ========================================================================= */

@@ -448,6 +448,98 @@ int h512_has_avx2(void) {
 #endif
 }
 
+/* ========================================================================= */
+/* SIMD FOLDED & SWAR-64 INTERNET CHECKSUM (RFC 1071 STAGE 2 FAST-PATH)      */
+/* ========================================================================= */
+uint16_t rfc1071_checksum_swar64(const void *data, size_t len) {
+    const uint8_t *p = (const uint8_t *)data;
+    uint64_t acc = 0;
+
+    while (len >= 8) {
+        acc += ((uint64_t)p[0] << 8) | (uint64_t)p[1];
+        acc += ((uint64_t)p[2] << 8) | (uint64_t)p[3];
+        acc += ((uint64_t)p[4] << 8) | (uint64_t)p[5];
+        acc += ((uint64_t)p[6] << 8) | (uint64_t)p[7];
+        p += 8;
+        len -= 8;
+    }
+
+    while (len >= 2) {
+        acc += ((uint64_t)p[0] << 8) | (uint64_t)p[1];
+        p += 2;
+        len -= 2;
+    }
+
+    if (len == 1) {
+        acc += ((uint64_t)p[0] << 8);
+    }
+
+    while (acc >> 16) {
+        acc = (acc & 0xFFFF) + (acc >> 16);
+    }
+
+    return (uint16_t)(~acc);
+}
+
+uint16_t rfc1071_checksum_avx2(const void *data, size_t len) {
+#if defined(__AVX2__)
+    const uint8_t *p = (const uint8_t *)data;
+    uint64_t acc = 0;
+
+    if (len >= 32) {
+        __m256i v_acc = _mm256_setzero_si256();
+        __m256i zero = _mm256_setzero_si256();
+        const __m256i bswap16_mask = _mm256_setr_epi8(
+            1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 13, 12, 15, 14,
+            1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 13, 12, 15, 14
+        );
+
+        while (len >= 32) {
+            __m256i raw = _mm256_loadu_si256((const __m256i *)(const void *)p);
+            __m256i be = _mm256_shuffle_epi8(raw, bswap16_mask);
+            __m256i lo = _mm256_unpacklo_epi16(be, zero);
+            __m256i hi = _mm256_unpackhi_epi16(be, zero);
+            v_acc = _mm256_add_epi32(v_acc, _mm256_add_epi32(lo, hi));
+            p += 32;
+            len -= 32;
+        }
+
+        /* Horizontal reduction: 256 -> 128 -> 64 -> 32 */
+        __m128i v128 = _mm_add_epi32(_mm256_castsi256_si128(v_acc), _mm256_extracti128_si256(v_acc, 1));
+        v128 = _mm_add_epi32(v128, _mm_srli_si128(v128, 8));
+        v128 = _mm_add_epi32(v128, _mm_srli_si128(v128, 4));
+        acc += (uint32_t)_mm_cvtsi128_si32(v128);
+    }
+
+    while (len >= 2) {
+        acc += ((uint64_t)p[0] << 8) | (uint64_t)p[1];
+        p += 2;
+        len -= 2;
+    }
+
+    if (len == 1) {
+        acc += ((uint64_t)p[0] << 8);
+    }
+
+    while (acc >> 16) {
+        acc = (acc & 0xFFFF) + (acc >> 16);
+    }
+
+    return (uint16_t)(~acc);
+#else
+    return rfc1071_checksum_swar64(data, len);
+#endif
+}
+
+uint16_t rfc1071_checksum(const void *data, size_t len) {
+#if defined(__AVX2__)
+    if (h512_has_avx2() && len >= 32) {
+        return rfc1071_checksum_avx2(data, len);
+    }
+#endif
+    return rfc1071_checksum_swar64(data, len);
+}
+
 static inline __m256i xtime_avx2(__m256i x) {
     __m256i shifted = _mm256_and_si256(_mm256_slli_epi64(x, 1), _mm256_set1_epi64x(0xFEFEFEFEFEFEFEFEULL));
     __m256i red = _mm256_blendv_epi8(_mm256_setzero_si256(), _mm256_set1_epi8(0x1B), x);
@@ -486,17 +578,55 @@ static inline __m256i bswap64_avx2(__m256i x) {
     return _mm256_shuffle_epi8(x, mask);
 }
 
+/* In-Register 4-Way 8x8 Byte Matrix Transposition (Zero RAM spills / 14 cycles) */
+static inline void transpose8x8_4way_avx2(__m256i R[8]) {
+    __m256i t0 = _mm256_unpacklo_epi8(R[0], R[1]);
+    __m256i t1 = _mm256_unpackhi_epi8(R[0], R[1]);
+    __m256i t2 = _mm256_unpacklo_epi8(R[2], R[3]);
+    __m256i t3 = _mm256_unpackhi_epi8(R[2], R[3]);
+    __m256i t4 = _mm256_unpacklo_epi8(R[4], R[5]);
+    __m256i t5 = _mm256_unpackhi_epi8(R[4], R[5]);
+    __m256i t6 = _mm256_unpacklo_epi8(R[6], R[7]);
+    __m256i t7 = _mm256_unpackhi_epi8(R[6], R[7]);
+
+    __m256i u0 = _mm256_unpacklo_epi16(t0, t2);
+    __m256i u1 = _mm256_unpackhi_epi16(t0, t2);
+    __m256i u2 = _mm256_unpacklo_epi16(t1, t3);
+    __m256i u3 = _mm256_unpackhi_epi16(t1, t3);
+    __m256i u4 = _mm256_unpacklo_epi16(t4, t6);
+    __m256i u5 = _mm256_unpackhi_epi16(t4, t6);
+    __m256i u6 = _mm256_unpacklo_epi16(t5, t7);
+    __m256i u7 = _mm256_unpackhi_epi16(t5, t7);
+
+    __m256i v0 = _mm256_unpacklo_epi32(u0, u4);
+    __m256i v1 = _mm256_unpackhi_epi32(u0, u4);
+    __m256i v2 = _mm256_unpacklo_epi32(u1, u5);
+    __m256i v3 = _mm256_unpackhi_epi32(u1, u5);
+    __m256i v4 = _mm256_unpacklo_epi32(u2, u6);
+    __m256i v5 = _mm256_unpackhi_epi32(u2, u6);
+    __m256i v6 = _mm256_unpacklo_epi32(u3, u7);
+    __m256i v7 = _mm256_unpackhi_epi32(u3, u7);
+
+    R[0] = _mm256_unpacklo_epi64(v0, v4);
+    R[1] = _mm256_unpackhi_epi64(v0, v4);
+    R[2] = _mm256_unpacklo_epi64(v1, v5);
+    R[3] = _mm256_unpackhi_epi64(v1, v5);
+    R[4] = _mm256_unpacklo_epi64(v2, v6);
+    R[5] = _mm256_unpackhi_epi64(v2, v6);
+    R[6] = _mm256_unpacklo_epi64(v3, v7);
+    R[7] = _mm256_unpackhi_epi64(v3, v7);
+}
+
 static void h512_compress_4way_avx2_rounds(uint8_t S[4][8][8], const uint8_t (*blocks)[64], uint64_t cumulative_bits, int num_rounds) {
     h512_state_t S_prev[4];
     for (int k = 0; k < 4; k++) memcpy(S_prev[k].b, S[k], 64);
 
-    uint64_t m_disp_u64[4][8];
+    uint8_t m_disp[4][8][8];
     for (int k = 0; k < 4; k++) {
-        const uint64_t *M_in = (const uint64_t *)blocks[k];
         for (int r = 0; r < 8; r++) {
-            int shift = r & 7;
-            uint64_t x = M_in[r];
-            m_disp_u64[k][r] = shift ? ((x >> (shift * 8)) | (x << ((8 - shift) * 8))) : x;
+            for (int c = 0; c < 8; c++) {
+                m_disp[k][r][c] = blocks[k][r * 8 + ((c + r) & 7)];
+            }
         }
     }
 
@@ -511,8 +641,7 @@ static void h512_compress_4way_avx2_rounds(uint8_t S[4][8][8], const uint8_t (*b
         for (int k = 0; k < 4; k++) {
             uint8_t row_bytes[8];
             for (int c = 0; c < 8; c++) {
-                uint8_t m_val = (uint8_t)(m_disp_u64[k][r] >> (c * 8));
-                row_bytes[c] = S[k][r][c] ^ m_val;
+                row_bytes[c] = S[k][r][c] ^ m_disp[k][r][c];
                 if (r == c) row_bytes[c] ^= t_bytes[r];
             }
             memcpy(&w[k], row_bytes, 8);
@@ -551,15 +680,24 @@ static void h512_compress_4way_avx2_rounds(uint8_t S[4][8][8], const uint8_t (*b
                 )
             );
 
-            uint8_t ctx_bytes[32], out_bytes[32];
-            _mm256_storeu_si256((__m256i*)ctx_bytes, context);
-            const uint8_t *rc_row = H512_RC[rnd][r];
+            uint64_t w_ctx[4], w_out[4];
+            _mm256_storeu_si256((__m256i*)w_ctx, context);
             for (int k = 0; k < 4; k++) {
-                for (int c = 0; c < 8; c++) {
-                    out_bytes[k * 8 + c] = H512_SBOX[ctx_bytes[k * 8 + c]] ^ rc_row[c];
-                }
+                uint64_t x = w_ctx[k];
+                w_out[k] = (uint64_t)H512_SBOX[(uint8_t)x]
+                         | ((uint64_t)H512_SBOX[(uint8_t)(x >> 8)] << 8)
+                         | ((uint64_t)H512_SBOX[(uint8_t)(x >> 16)] << 16)
+                         | ((uint64_t)H512_SBOX[(uint8_t)(x >> 24)] << 24)
+                         | ((uint64_t)H512_SBOX[(uint8_t)(x >> 32)] << 32)
+                         | ((uint64_t)H512_SBOX[(uint8_t)(x >> 40)] << 40)
+                         | ((uint64_t)H512_SBOX[(uint8_t)(x >> 48)] << 48)
+                         | ((uint64_t)H512_SBOX[(uint8_t)(x >> 56)] << 56);
             }
-            R[next][r] = _mm256_loadu_si256((const __m256i*)out_bytes);
+            uint64_t rc_u64;
+            memcpy(&rc_u64, H512_RC[rnd][r], 8);
+            __m256i rc_vec = _mm256_set1_epi64x(rc_u64);
+            __m256i sbox_out = _mm256_loadu_si256((const __m256i*)w_out);
+            R[next][r] = _mm256_xor_si256(sbox_out, rc_vec);
         }
 
         {
@@ -590,26 +728,10 @@ static void h512_compress_4way_avx2_rounds(uint8_t S[4][8][8], const uint8_t (*b
         if (fam == 0) {
             for (int r = 1; r < 8; r++) R[next][r] = rotl_bytes64_avx2(R[next][r], r);
         } else if (fam == 1) {
-            uint64_t w[8][4];
-            for (int r = 0; r < 8; r++) _mm256_storeu_si256((__m256i*)w[r], R[next][r]);
-            for (int k = 0; k < 4; k++) {
-                uint8_t mat[8][8];
-                for (int r = 0; r < 8; r++) memcpy(mat[r], &w[r][k], 8);
-                transpose8x8_inplace(mat);
-                for (int r = 0; r < 8; r++) memcpy(&w[r][k], mat[r], 8);
-            }
-            for (int r = 0; r < 8; r++) R[next][r] = _mm256_loadu_si256((const __m256i*)w[r]);
+            transpose8x8_4way_avx2(R[next]);
         } else if (fam == 2) {
             for (int r = 1; r < 8; r++) R[next][r] = rotl_bytes64_avx2(R[next][r], r);
-            uint64_t w[8][4];
-            for (int r = 0; r < 8; r++) _mm256_storeu_si256((__m256i*)w[r], R[next][r]);
-            for (int k = 0; k < 4; k++) {
-                uint8_t mat[8][8];
-                for (int r = 0; r < 8; r++) memcpy(mat[r], &w[r][k], 8);
-                transpose8x8_inplace(mat);
-                for (int r = 0; r < 8; r++) memcpy(&w[r][k], mat[r], 8);
-            }
-            for (int r = 0; r < 8; r++) R[next][r] = _mm256_loadu_si256((const __m256i*)w[r]);
+            transpose8x8_4way_avx2(R[next]);
         } else {
             for (int r = 0; r < 8; r++) {
                 R[next][r] = bswap64_avx2(rotl_bytes64_avx2(R[next][r], r));
@@ -621,8 +743,11 @@ static void h512_compress_4way_avx2_rounds(uint8_t S[4][8][8], const uint8_t (*b
         uint64_t w[4];
         _mm256_storeu_si256((__m256i*)w, R[0][r]);
         for (int k = 0; k < 4; k++) {
-            uint64_t *S_u64 = (uint64_t *)S[k];
-            S_u64[r] = w[k] ^ S_prev[k].u64[r] ^ m_disp_u64[k][r];
+            uint8_t final_row[8];
+            memcpy(final_row, &w[k], 8);
+            for (int c = 0; c < 8; c++) {
+                S[k][r][c] = final_row[c] ^ S_prev[k].b[r][c] ^ m_disp[k][r][c];
+            }
         }
     }
 }

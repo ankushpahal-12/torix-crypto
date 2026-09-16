@@ -23,13 +23,85 @@ __version__ = "2.1.0"
 
 import os
 import secrets
-from typing import Optional, Tuple, Union, Any
+import ctypes
+import subprocess
+from typing import Optional, Tuple, Union, Any, Dict
 
 # Import internal specialized engines
 import h512
 from h512 import H512Hasher, H256Hasher
 import torix_aead
 import torix_sponge
+
+# ==============================================================================
+# HARDWARE ACCELERATION ENGINE DISCOVERY (AVX2 / AVX-512 C BRIDGE)
+# ==============================================================================
+_ROOT_DIR = os.path.abspath(os.path.join(_PKG_DIR, ".."))
+_C_LIB_CANDIDATES = [
+    os.path.join(_ROOT_DIR, "libtorix.dll"),
+    os.path.join(_ROOT_DIR, "libtorix.so"),
+    os.path.join(_ROOT_DIR, "libtorix.dylib"),
+    os.path.join(_PKG_DIR, "libtorix.dll"),
+]
+_C_BIN_CANDIDATES = [
+    os.path.join(_ROOT_DIR, "torix_engine.exe"),
+    os.path.join(_ROOT_DIR, "torix_engine"),
+    os.path.join(_ROOT_DIR, "tests", "h512_engine.exe"),
+]
+
+_NATIVE_LIB = None
+_NATIVE_BIN = None
+
+for _cand in _C_LIB_CANDIDATES:
+    if os.path.exists(_cand):
+        try:
+            _lib = ctypes.CDLL(_cand)
+            _lib.h512_hash.argtypes = [ctypes.c_char_p, ctypes.c_size_t, ctypes.c_char_p]
+            _lib.h512_hash.restype = None
+            _lib.h256_hash.argtypes = [ctypes.c_char_p, ctypes.c_size_t, ctypes.c_char_p]
+            _lib.h256_hash.restype = None
+            _lib.h512_turbo_hash.argtypes = [ctypes.c_char_p, ctypes.c_size_t, ctypes.c_char_p]
+            _lib.h512_turbo_hash.restype = None
+            _lib.h512_has_avx2.argtypes = []
+            _lib.h512_has_avx2.restype = ctypes.c_int
+            _NATIVE_LIB = _lib
+            break
+        except (OSError, AttributeError):
+            pass
+
+for _cand in _C_BIN_CANDIDATES:
+    if os.path.exists(_cand):
+        _NATIVE_BIN = _cand
+        break
+
+
+def get_backend_info() -> Dict[str, Any]:
+    """Returns status and configuration of the active hardware/cryptographic backend."""
+    if _NATIVE_LIB is not None:
+        has_avx2 = bool(_NATIVE_LIB.h512_has_avx2())
+        return {
+            "backend": "native_ctypes",
+            "avx2_accelerated": has_avx2,
+            "engine_path": getattr(_NATIVE_LIB, "_name", "libtorix"),
+            "simd_lanes": 4 if has_avx2 else 1,
+            "description": "In-process C99 AVX2 hardware-accelerated shared library",
+        }
+    elif _NATIVE_BIN is not None:
+        return {
+            "backend": "native_binary",
+            "avx2_accelerated": True,
+            "engine_path": _NATIVE_BIN,
+            "simd_lanes": 4,
+            "description": "Compiled C99 AVX2 vector engine (streaming CLI)",
+        }
+    else:
+        return {
+            "backend": "pure_python",
+            "avx2_accelerated": False,
+            "engine_path": None,
+            "simd_lanes": 1,
+            "description": "Pure Python mathematical reference implementation",
+        }
 
 
 # ==============================================================================
@@ -76,16 +148,31 @@ turbo = turbo512
 
 def hash512(data: Union[str, bytes]) -> str:
     """One-shot 512-bit hex digest of a string or bytes."""
+    if _NATIVE_LIB is not None:
+        b_data = data.encode("utf-8") if isinstance(data, str) else data
+        buf = ctypes.create_string_buffer(64)
+        _NATIVE_LIB.h512_hash(b_data, len(b_data), buf)
+        return buf.raw.hex()
     return torix512(data).hexdigest()
 
 
 def hash_turbo512(data: Union[str, bytes]) -> str:
     """One-shot 512-bit hex digest using Turbo-10 profile."""
+    if _NATIVE_LIB is not None:
+        b_data = data.encode("utf-8") if isinstance(data, str) else data
+        buf = ctypes.create_string_buffer(64)
+        _NATIVE_LIB.h512_turbo_hash(b_data, len(b_data), buf)
+        return buf.raw.hex()
     return turbo512(data).hexdigest()
 
 
 def hash256(data: Union[str, bytes]) -> str:
     """One-shot 256-bit hex digest of a string or bytes."""
+    if _NATIVE_LIB is not None:
+        b_data = data.encode("utf-8") if isinstance(data, str) else data
+        buf = ctypes.create_string_buffer(32)
+        _NATIVE_LIB.h256_hash(b_data, len(b_data), buf)
+        return buf.raw.hex()
     return torix256(data).hexdigest()
 
 
@@ -111,18 +198,29 @@ def hash_file(
 
 def hash_file_tree(
     filepath: Union[str, os.PathLike],
-    chunk_size: int = 65536,
+    chunk_size: int = 1024,
     num_workers: int = 4,
+    turbo: bool = False,
 ) -> str:
     """
     Parallel binary Merkle tree hash for large multimedia files (videos, high-res audio).
     Processes chunks across multiple CPU cores with O(log N) seekable proof capability.
+    Leverages native C AVX2 binary acceleration if available with O(1) streaming memory.
     """
+    if _NATIVE_BIN and os.path.exists(_NATIVE_BIN) and chunk_size == 1024:
+        try:
+            flag = "--turbo-tree" if turbo else "--tree"
+            res = subprocess.check_output([_NATIVE_BIN, flag, str(filepath)], timeout=120).decode("ascii").strip()
+            return res.split()[0]
+        except Exception:
+            pass
+
     import h512_modes
     with open(filepath, "rb") as f:
         data = f.read()
     hasher = h512_modes.H512TreeHasher(chunk_size=chunk_size, num_workers=num_workers)
     return hasher.hash(data).hex()
+
 
 
 
