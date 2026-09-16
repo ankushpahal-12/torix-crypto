@@ -546,13 +546,13 @@ In high-throughput line-rate network environments (e.g. 100 Gbps eBPF / XDP rout
 Under Single-Pass Keyed MAC mode, the 64-byte symmetric key $K$ directly initializes the 512-bit toroidal state under dedicated domain separation tag $\tau = \mathtt{0x07}$:
 
 $$
-S_0 = \mathcal{H}\big(\text{IV}, \, K, \, \text{TAG\_KEYED\_MAC}\big)
+S_0 = \mathcal{H}\big(\text{IV}, \, K, \, \tau_{\text{MAC}}\big), \quad \text{where } \tau_{\text{MAC}} = \mathtt{0x07}
 $$
 
-The frame contents $(AAD \parallel \text{Header} \parallel \text{Payload})$ are absorbed sequentially in a single pass, and the 128-bit authentication tag is extracted directly from the final state:
+The frame contents $(\text{AAD} \parallel \text{Header} \parallel \text{Payload})$ are absorbed sequentially in a single pass, and the 128-bit authentication tag is extracted directly from the final state:
 
 $$
-\text{Tag} = \text{Extract}_{128}\Big(\mathcal{H}\big(S_0, \, AAD \parallel \text{Header} \parallel \text{Payload}\big)\Big)
+\text{Tag} = \text{Extract}_{128}\Big(\mathcal{H}\big(S_0, \, \text{AAD} \parallel \text{Header} \parallel \text{Payload}\big)\Big)
 $$
 
 This eliminates the second outer pad compression entirely while maintaining provable PRF security bounds against forgery under the Wide-Trail active S-box guarantees ($n_{\text{act}} \ge 544$).
